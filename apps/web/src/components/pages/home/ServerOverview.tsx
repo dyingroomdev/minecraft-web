@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { Copy, Server, Users, Clock } from 'lucide-react';
-import { Button } from '../../ui/button';
-import { apiClient } from '../../../lib/api';
 import { useEffect, useState } from 'react';
+import { Copy, Server, Users, Clock } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { apiClient } from '@/lib/api';
 
 export function ServerOverview() {
   const [wsStatus, setWsStatus] = useState<any>(null);
@@ -72,12 +73,12 @@ export function ServerOverview() {
               <label className="text-sm font-medium text-muted-foreground">Java Edition</label>
               <div className="flex items-center space-x-2 mt-1">
                 <code className="bg-muted px-3 py-2 rounded text-sm flex-1">
-                  play.amzcraft.xyz
+                  play.amzcraft.xyz:25565
                 </code>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => copyToClipboard('play.amzcraft.xyz')}
+                  onClick={() => copyToClipboard('play.amzcraft.xyz:25565')}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -103,6 +104,12 @@ export function ServerOverview() {
             <div className="text-sm text-muted-foreground">
               <p>Location: Singapore</p>
               <p>Uptime: 99.9%</p>
+              {status?.metadata?.ping ? (
+                <p>Ping: {status.metadata.ping} ms</p>
+              ) : null}
+              {status?.metadata?.tps ? (
+                <p>TPS: {status.metadata.tps}</p>
+              ) : null}
             </div>
           </div>
         </div>

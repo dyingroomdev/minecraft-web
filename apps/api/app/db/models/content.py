@@ -34,7 +34,7 @@ class Rank(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(96), nullable=False)
     priority: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    metadata: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
 
     players: Mapped[list["Player"]] = relationship("Player", back_populates="rank")
 
@@ -51,7 +51,7 @@ class Guild(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("players.id", ondelete="SET NULL"), nullable=True
     )
 
-    owner: Mapped["Player" | None] = relationship(
+    owner: Mapped["Player | None"] = relationship(
         "Player", foreign_keys=[owner_player_id], back_populates="owned_guild"
     )
     members: Mapped[list["GuildMember"]] = relationship(
@@ -105,7 +105,7 @@ class ServerStatus(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     players_online: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     players_max: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     motd: Mapped[str | None] = mapped_column(Text, nullable=True)
-    metadata: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -164,7 +164,7 @@ class Leaderboard(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     leaderboard_type: Mapped[str] = mapped_column(String(64), nullable=False)
     title: Mapped[str | None] = mapped_column(String(140), nullable=True)
     entries: Mapped[list[dict[str, Any]]] = mapped_column(MutableList.as_mutable(JSON_VARIANT), default=list)
-    metadata: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
 
 
 class Ticket(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -176,9 +176,9 @@ class Ticket(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     subject: Mapped[str] = mapped_column(String(140), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="open", nullable=False)
-    metadata: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
 
-    player: Mapped[Player | None] = relationship("Player")
+    player: Mapped["Player | None"] = relationship("Player")
 
 
 class SocialLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -189,4 +189,43 @@ class SocialLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     platform: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     url: Mapped[str] = mapped_column(String(255), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-*** End of File
+
+
+class VoteLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Vote links and rewards displayed to players."""
+
+    __tablename__ = "vote_links"
+
+    title: Mapped[str] = mapped_column(String(140), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    url: Mapped[str] = mapped_column(String(255), nullable=False)
+    button_text: Mapped[str] = mapped_column(String(64), nullable=False, default="Vote")
+    rewards: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON_VARIANT), default=list)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class HeroSlide(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Hero slider entries for the homepage."""
+
+    __tablename__ = "hero_slides"
+
+    title: Mapped[str] = mapped_column(String(140), nullable=False)
+    subtitle: Mapped[str | None] = mapped_column(String(280), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    button_text: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    button_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class ServerFeature(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Server feature highlights shown on the homepage."""
+
+    __tablename__ = "server_features"
+
+    title: Mapped[str] = mapped_column(String(140), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -6,11 +6,12 @@ import asyncio
 import json
 from typing import Any
 
-import aioredis
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
 
 from app.core.config import Settings, get_settings
+from app.services.minecraft import SERVER_STATUS_CHANNEL
 
 router = APIRouter()
 
@@ -69,7 +70,7 @@ class ConnectionManager:
         
         try:
             pubsub = self.redis.pubsub()
-            await pubsub.subscribe('minecraft:status')
+            await pubsub.subscribe(SERVER_STATUS_CHANNEL)
             
             async for message in pubsub.listen():
                 if message['type'] == 'message':

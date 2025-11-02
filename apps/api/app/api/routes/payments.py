@@ -4,29 +4,28 @@ from __future__ import annotations
 
 import uuid
 
-import aioredis
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from redis import asyncio as aioredis
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_admin_user, get_db_session, get_settings_dependency
+from app.api.deps import get_db_session, get_settings_dependency
 from app.core.config import Settings
-from app.db.models import PaymentRequest, RankProduct, User
-from app.schemas.payment import (
-    PaymentApprovalRequest,
-    PaymentRejectionRequest,
-    PaymentRequestRead,
-    PaymentSubmitRequest,
-    RankProductRead,
-)
+from app.db.models import PaymentRequest, RankProduct
+from app.schemas.payment import PaymentRequestRead, PaymentSubmitRequest, RankProductRead
 from app.services.payment import PaymentService
 
 router = APIRouter()
 
 
-async def get_redis(settings: Settings = Depends(get_settings_dependency)) -> aioredis.Redis:
-    """Get Redis connection."""
-    return aioredis.from_url(settings.redis_url)
+async def get_redis(settings: Settings = Depends(get_settings_dependency)):
+    """Yield a Redis connection for payment operations."""
+    redis = aioredis.from_url(settings.redis_url)
+    try:
+        yield redis
+    finally:
+        await redis.close()
 
 
 @router.get("/products", response_model=list[RankProductRead])
@@ -46,7 +45,7 @@ async def submit_bkash_payment(
 ) -> PaymentRequest:
     """Submit a bKash payment request."""
     client_ip = request.client.host if request.client else None
-    
+
     payment_service = PaymentService(session, redis)
     payment_request = await payment_service.submit_payment(
         rank_code=payment_data.rank_code,
@@ -56,51 +55,22 @@ async def submit_bkash_payment(
         screenshot_url=payment_data.screenshot_url,
         client_ip=client_ip,
     )
-    
+
     return payment_request
 
 
-@router.get("/admin/payments", response_model=list[PaymentRequestRead])
-async def list_payments(
-    status_filter: str = "pending",
+@router.get("/payments/requests/{payment_id}", response_model=PaymentRequestRead)
+async def get_payment_request(
+    payment_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    admin_user: User = Depends(get_admin_user),
-) -> list[PaymentRequest]:
-    """List payment requests by status."""
+) -> PaymentRequest:
     stmt = (
         select(PaymentRequest)
-        .where(PaymentRequest.status == status_filter)
-        .order_by(PaymentRequest.created_at.desc())
+        .options(selectinload(PaymentRequest.rank_product))
+        .where(PaymentRequest.id == payment_id)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
-
-
-@router.post("/admin/payments/{payment_id}/approve", response_model=PaymentRequestRead)
-async def approve_payment(
-    payment_id: uuid.UUID,
-    approval_data: PaymentApprovalRequest,
-    idempotency_key: str = Header(..., alias="Idempotency-Key"),
-    session: AsyncSession = Depends(get_db_session),
-    redis: aioredis.Redis = Depends(get_redis),
-    admin_user: User = Depends(get_admin_user),
-) -> PaymentRequest:
-    """Approve a payment request."""
-    if not idempotency_key:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Idempotency-Key header required")
-    
-    payment_service = PaymentService(session, redis)
-    return await payment_service.approve_payment(payment_id, admin_user.id, idempotency_key)
-
-
-@router.post("/admin/payments/{payment_id}/reject", response_model=PaymentRequestRead)
-async def reject_payment(
-    payment_id: uuid.UUID,
-    rejection_data: PaymentRejectionRequest,
-    session: AsyncSession = Depends(get_db_session),
-    redis: aioredis.Redis = Depends(get_redis),
-    admin_user: User = Depends(get_admin_user),
-) -> PaymentRequest:
-    """Reject a payment request."""
-    payment_service = PaymentService(session, redis)
-    return await payment_service.reject_payment(payment_id, admin_user.id, rejection_data.reason)
+    payment = result.scalar_one_or_none()
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment request not found")
+    return payment

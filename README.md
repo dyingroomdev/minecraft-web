@@ -52,12 +52,18 @@ Monorepo containing the AMZCraft backend API, background worker, and React front
 - Ruff and mypy settings live in `pyproject.toml` and `mypy.ini`.
 - Pre-commit hooks enforce formatting and type checks.
 - Tailwind and shadcn/ui are preconfigured with sample components.
+- Background Minecraft status poller can be toggled via `ENABLE_STATUS_POLLER` (disable during tests if Redis isn't available).
 
 ## API highlights
 
 - Discord OAuth2 login `/auth/discord/login` plus callback `/auth/discord/callback`.
 - JWT access/refresh lifecycle with rotation via `/auth/refresh`, `/auth/logout`, and `/me` profile endpoint.
 - Alembic migrations cover `users`, `refresh_tokens`, and `audit_logs`.
+- Content and gameplay data models for players, ranks, guilds, events, rules, leaderboards, tickets, and social links.
+- Public content endpoints under `/api` for status, news, rules, events, leaderboards, players, and social metadata.
+- Vote links and rewards managed via `/admin/votes` and exposed at `/api/votes` for the `/vote` front-end page.
+- Hero slider and server features managed through admin endpoints and delivered via `/api/hero-slides` & `/api/features` for a dynamic homepage.
+- Admin-protected CRUD endpoints under `/admin` for managing news, events, rules, and social links (RBAC enforced for OWNER/ADMIN/MOD roles).
 - Worker includes a nightly Discord role-sync stub ready for future implementation.
 - Payment system with bKash integration and rank fulfillment.
 - Real-time server status via WebSocket.

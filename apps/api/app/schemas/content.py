@@ -17,9 +17,9 @@ class ServerStatusRead(BaseModel):
     players_max: int
     motd: str | None = None
     recorded_at: datetime
-    metadata: dict[str, Any]
+    metadata: dict[str, Any] = Field(alias="meta_data", serialization_alias="metadata")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class NewsSummary(BaseModel):
@@ -136,9 +136,9 @@ class LeaderboardRead(BaseModel):
     leaderboard_type: str
     title: str | None = None
     entries: list[LeaderboardEntry]
-    metadata: dict[str, Any]
+    metadata: dict[str, Any] = Field(alias="meta_data", serialization_alias="metadata")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class PlayerGuild(BaseModel):
@@ -176,6 +176,7 @@ class SocialLinksRead(BaseModel):
     youtube: str | None = None
     tiktok: str | None = None
     instagram: str | None = None
+    website: str | None = None
 
 
 class SocialLinksUpdate(BaseModel):
@@ -185,5 +186,97 @@ class SocialLinksUpdate(BaseModel):
     youtube: str | None = None
     tiktok: str | None = None
     instagram: str | None = None
+    website: str | None = None
 
-*** End of File
+
+class VoteLinkRead(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: str | None = None
+    url: str
+    button_text: str
+    rewards: list[str]
+    display_order: int
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VoteLinkCreate(BaseModel):
+    title: str
+    description: str | None = None
+    url: str
+    button_text: str = "Vote"
+    rewards: list[str] = Field(default_factory=list)
+    display_order: int = 0
+    is_active: bool = True
+
+
+class VoteLinkUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    url: str | None = None
+    button_text: str | None = None
+    rewards: list[str] | None = None
+    display_order: int | None = None
+    is_active: bool | None = None
+
+
+class HeroSlideRead(BaseModel):
+    id: uuid.UUID
+    title: str
+    subtitle: str | None = None
+    image_url: str | None = None
+    button_text: str | None = None
+    button_url: str | None = None
+    display_order: int
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HeroSlideCreate(BaseModel):
+    title: str
+    subtitle: str | None = None
+    image_url: str | None = None
+    button_text: str | None = None
+    button_url: str | None = None
+    display_order: int = 0
+    is_active: bool = True
+
+
+class HeroSlideUpdate(BaseModel):
+    title: str | None = None
+    subtitle: str | None = None
+    image_url: str | None = None
+    button_text: str | None = None
+    button_url: str | None = None
+    display_order: int | None = None
+    is_active: bool | None = None
+
+
+class ServerFeatureRead(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: str
+    icon: str | None = None
+    display_order: int
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ServerFeatureCreate(BaseModel):
+    title: str
+    description: str
+    icon: str | None = None
+    display_order: int = 0
+    is_active: bool = True
+
+
+class ServerFeatureUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    icon: str | None = None
+    display_order: int | None = None
+    is_active: bool | None = None

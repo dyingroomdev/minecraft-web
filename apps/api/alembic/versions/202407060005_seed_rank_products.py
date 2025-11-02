@@ -7,8 +7,10 @@ Create Date: 2024-07-06 00:05:00.000000
 """
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import sqlalchemy as sa
 from alembic import op
@@ -26,41 +28,38 @@ def upgrade() -> None:
     
     rank_products = [
         {
-            "id": str(uuid.uuid4()),
+            "id": uuid.uuid4(),
             "rank_code": "vip",
             "display_name": "VIP Rank",
-            "price_bdt": "500.00",
+            "price_bdt": Decimal("500.00"),
             "duration_days": 30,
             "luckperms_group": "vip",
             "description": "VIP rank with special perks for 30 days",
             "is_active": True,
-            "metadata": "{}",
             "created_at": now,
             "updated_at": now,
         },
         {
-            "id": str(uuid.uuid4()),
+            "id": uuid.uuid4(),
             "rank_code": "premium",
             "display_name": "Premium Rank",
-            "price_bdt": "1000.00",
+            "price_bdt": Decimal("1000.00"),
             "duration_days": 30,
             "luckperms_group": "premium",
             "description": "Premium rank with enhanced features for 30 days",
             "is_active": True,
-            "metadata": "{}",
             "created_at": now,
             "updated_at": now,
         },
         {
-            "id": str(uuid.uuid4()),
+            "id": uuid.uuid4(),
             "rank_code": "legend",
             "display_name": "Legend Rank",
-            "price_bdt": "2000.00",
+            "price_bdt": Decimal("2000.00"),
             "duration_days": None,  # Permanent
             "luckperms_group": "legend",
             "description": "Permanent legend rank with all privileges",
             "is_active": True,
-            "metadata": "{}",
             "created_at": now,
             "updated_at": now,
         },
@@ -75,10 +74,10 @@ def upgrade() -> None:
                     created_at, updated_at
                 ) VALUES (
                     :id, :rank_code, :display_name, :price_bdt, :duration_days,
-                    :luckperms_group, :description, :is_active, :metadata,
+                    :luckperms_group, :description, :is_active, '{}'::jsonb,
                     :created_at, :updated_at
                 )
-            """).bindparam(**product)
+            """).bindparams(**product)
         )
 
 

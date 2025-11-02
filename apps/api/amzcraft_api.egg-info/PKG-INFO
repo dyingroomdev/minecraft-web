@@ -1,0 +1,65 @@
+Metadata-Version: 2.4
+Name: amzcraft-api
+Version: 0.1.0
+Summary: FastAPI service for the monorepo
+Author: Amzcraft
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.111.0
+Requires-Dist: uvicorn[standard]>=0.30.0
+Requires-Dist: sqlalchemy[asyncio]>=2.0.30
+Requires-Dist: alembic>=1.13.1
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: pydantic>=2.7.0
+Requires-Dist: pydantic-settings>=2.2.1
+Requires-Dist: python-jose>=3.3.0
+Requires-Dist: passlib[bcrypt]>=1.7.4
+Requires-Dist: redis>=5.0.4
+Requires-Dist: aioredis>=2.0.1
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: structlog>=24.1.0
+Requires-Dist: websockets>=12.0
+Requires-Dist: rcon>=1.6.6
+Requires-Dist: backoff>=2.2.1
+Requires-Dist: bleach>=6.0.0
+Requires-Dist: python-magic>=0.4.27
+Requires-Dist: python-multipart>=0.0.6
+Provides-Extra: dev
+Requires-Dist: pytest>=8.2.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.6; extra == "dev"
+
+# AMZCraft API
+
+FastAPI application providing backend APIs for the AMZCraft platform.
+
+## Local development
+
+Install dependencies and run the application:
+
+```bash
+pip install -e .[dev]
+uvicorn app.main:app --reload
+```
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+## Database migrations
+
+Alembic is configured under `alembic/`. Generate and apply migrations from this directory:
+
+```bash
+alembic revision --autogenerate -m "describe change"
+alembic upgrade head
+```
+
+## Auth endpoints
+
+- `GET /auth/discord/login` – Redirects to Discord OAuth consent.
+- `GET /auth/discord/callback` – Handles Discord redirect, issues JWT access + refresh tokens, and sets HTTP-only refresh cookie.
+- `POST /auth/refresh` – Rotates refresh token and returns a new access token.
+- `POST /auth/logout` – Revokes refresh token and clears cookies.
+- `GET /me` – Returns the authenticated user's profile.

@@ -22,6 +22,10 @@ depends_on = None
 
 def upgrade() -> None:
     """Add pinned rule about war notifications."""
+    # Generate values
+    rule_id = uuid.uuid4()
+    now = datetime.now(timezone.utc)
+    
     # Insert the pinned rule
     op.execute(
         sa.text("""
@@ -37,10 +41,10 @@ def upgrade() -> None:
                 :created_at,
                 :updated_at
             )
-        """).bindparam(
-            id=str(uuid.uuid4()),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
+        """).bindparams(
+            sa.bindparam("id", rule_id),
+            sa.bindparam("created_at", now),
+            sa.bindparam("updated_at", now)
         )
     )
 

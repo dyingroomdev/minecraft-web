@@ -72,6 +72,16 @@ class Settings(BaseSettings):
     minecraft_server_port: int = Field(default=25565, alias="MINECRAFT_SERVER_PORT")
     minecraft_rcon_port: int = Field(default=25575, alias="MINECRAFT_RCON_PORT")
     minecraft_rcon_password: str = Field(default="", alias="MINECRAFT_RCON_PASSWORD")
+    cors_allowed_origins: list[str] = Field(
+        default=["http://localhost:5173", "http://localhost:3000"],
+        alias="CORS_ALLOWED_ORIGINS",
+    )
+    trusted_hosts: list[str] = Field(
+        default=["localhost", "127.0.0.1"],
+        alias="TRUSTED_HOSTS",
+    )
+    rate_limit_per_minute: int = Field(default=100, alias="RATE_LIMIT_PER_MINUTE")
+    enable_status_poller: bool = Field(default=True, alias="ENABLE_STATUS_POLLER")
 
     oauth_scopes: tuple[str, ...] = ("identify", "email", "guilds.members.read")
 
@@ -84,6 +94,13 @@ class Settings(BaseSettings):
     def _blank_domain_to_none(cls, value: str | None) -> str | None:
         if isinstance(value, str) and value.strip() == "":
             return None
+        return value
+
+    @field_validator("cors_allowed_origins", "trusted_hosts", mode="before")
+    @classmethod
+    def _split_csv(cls, value: list[str] | str) -> list[str]:
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
     @computed_field  # type: ignore[misc]

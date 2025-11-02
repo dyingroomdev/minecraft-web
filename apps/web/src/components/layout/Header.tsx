@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Moon, Sun, User, LogOut, Settings } from 'lucide-react';
-import { Button } from '../ui/button';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
+
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export function Header() {
   const { user, login, logout, isAdmin } = useAuth();
@@ -21,6 +22,7 @@ export function Header() {
           <Link to="/events" className="hover:text-primary">Events</Link>
           <Link to="/ranks" className="hover:text-primary">Ranks</Link>
           <Link to="/leaderboards/current" className="hover:text-primary">Leaderboards</Link>
+          <Link to="/vote" className="hover:text-primary">Vote</Link>
         </nav>
 
         <div className="flex items-center space-x-2">

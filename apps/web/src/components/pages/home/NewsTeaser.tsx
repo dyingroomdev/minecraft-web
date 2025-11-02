@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Calendar, ArrowRight } from 'lucide-react';
-import { Button } from '../../ui/button';
-import { apiClient } from '../../../lib/api';
+import { Button } from '@/components/ui/button';
+import { apiClient } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 export function NewsTeaser() {
   const { data: news } = useQuery({
@@ -41,12 +42,12 @@ export function NewsTeaser() {
                 {post.summary}
               </p>
             )}
-            {post.published_at && (
-              <div className="flex items-center text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3 mr-1" />
-                {new Date(post.published_at).toLocaleDateString()}
-              </div>
-            )}
+                {post.published_at ? (
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <Calendar className="mr-1 h-3 w-3" />
+                    {formatDate(post.published_at)}
+                  </div>
+                ) : null}
           </Link>
         ))}
       </div>

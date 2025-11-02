@@ -12,6 +12,9 @@ from .content import (
     Rule,
     ServerStatus,
     SocialLink,
+    HeroSlide,
+    ServerFeature,
+    VoteLink,
     Ticket,
 )
 from .payment import Entitlement, PaymentRequest, RankProduct
@@ -31,6 +34,9 @@ __all__ = [
     "Leaderboard",
     "Ticket",
     "SocialLink",
+    "HeroSlide",
+    "ServerFeature",
+    "VoteLink",
     "RankProduct",
     "PaymentRequest",
     "Entitlement",

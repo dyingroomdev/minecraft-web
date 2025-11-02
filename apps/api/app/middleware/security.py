@@ -1,82 +1,111 @@
-"""Security middleware for rate limiting and CORS."""
+"""Security middleware for rate limiting, CORS, and content sanitization."""
 
-from fastapi import FastAPI, Request, HTTPException, status
+from __future__ import annotations
+
+import time
+from collections import defaultdict, deque
+from typing import Deque, Dict
+
+import bleach
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-import time
-from collections import defaultdict
-from typing import Dict
-import bleach
+
+from app.core.config import Settings
+
+_RATE_LIMIT_WINDOW_SECONDS = 60
+_ALLOWED_MARKDOWN_TAGS = [
+    "p",
+    "br",
+    "strong",
+    "em",
+    "u",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "code",
+    "pre",
+    "a",
+    "img",
+]
+_ALLOWED_MARKDOWN_ATTRIBUTES = {
+    "a": ["href", "title"],
+    "img": ["src", "alt", "title", "width", "height"],
+}
 
 
 class RateLimitMiddleware:
     """Simple in-memory rate limiting middleware."""
-    
+
     def __init__(self, requests_per_minute: int = 60):
         self.requests_per_minute = requests_per_minute
-        self.requests: Dict[str, list] = defaultdict(list)
-    
+        self._requests: Dict[str, Deque[float]] = defaultdict(deque)
+
     async def __call__(self, request: Request, call_next):
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
-        
-        # Clean old requests
-        self.requests[client_ip] = [
-            req_time for req_time in self.requests[client_ip]
-            if now - req_time < 60
-        ]
-        
-        # Check rate limit
-        if len(self.requests[client_ip]) >= self.requests_per_minute:
+
+        requests = self._requests[client_ip]
+        cutoff = now - _RATE_LIMIT_WINDOW_SECONDS
+
+        while requests and requests[0] <= cutoff:
+            requests.popleft()
+
+        if len(requests) >= self.requests_per_minute:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded"
+                detail="Rate limit exceeded",
             )
-        
-        # Add current request
-        self.requests[client_ip].append(now)
-        
-        response = await call_next(request)
-        return response
+
+        requests.append(now)
+        return await call_next(request)
 
 
 def sanitize_markdown(content: str) -> str:
     """Sanitize markdown content to prevent XSS."""
-    allowed_tags = [
-        'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img'
-    ]
-    allowed_attributes = {
-        'a': ['href', 'title'],
-        'img': ['src', 'alt', 'title', 'width', 'height'],
-    }
-    
+
     return bleach.clean(
         content,
-        tags=allowed_tags,
-        attributes=allowed_attributes,
-        strip=True
+        tags=_ALLOWED_MARKDOWN_TAGS,
+        attributes=_ALLOWED_MARKDOWN_ATTRIBUTES,
+        strip=True,
     )
 
 
-def setup_security_middleware(app: FastAPI) -> None:
+def sanitize_text(value: str | None) -> str | None:
+    """Strip any HTML tags from plain-text admin input."""
+
+    if value is None:
+        return None
+    cleaned = bleach.clean(value, tags=[], attributes={}, strip=True)
+    return cleaned.strip()
+
+
+def setup_security_middleware(app: FastAPI, settings: Settings) -> None:
     """Setup security middleware for the FastAPI app."""
-    
-    # CORS
+
+    cors_origins = settings.cors_allowed_origins or ["*"]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "https://amzcraft.xyz"],
+        allow_origins=cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
-    
-    # Trusted hosts
+
+    trusted_hosts = settings.trusted_hosts or ["*"]
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", "amzcraft.xyz", "*.amzcraft.xyz"]
+        allowed_hosts=trusted_hosts,
     )
-    
-    # Rate limiting
-    rate_limiter = RateLimitMiddleware(requests_per_minute=100)
+
+    rate_limiter = RateLimitMiddleware(requests_per_minute=settings.rate_limit_per_minute)
     app.middleware("http")(rate_limiter)

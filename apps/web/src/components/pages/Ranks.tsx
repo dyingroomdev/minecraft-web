@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Crown, Star, Zap, Clock } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { apiClient } from '../../lib/api';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { apiClient } from '@/lib/api';
 
 const rankIcons = {
   vip: Star,
@@ -40,7 +41,7 @@ export function Ranks() {
           const Icon = rankIcons[rank.rank_code as keyof typeof rankIcons] || Star;
           
           return (
-            <Card key={rank.id} className="relative">
+            <Card key={rank.id} className="relative" data-testid={`rank-card-${rank.rank_code.toLowerCase()}`}>
               <CardHeader className="text-center">
                 <Icon className="h-12 w-12 text-primary mx-auto mb-4" />
                 <CardTitle className="text-2xl">{rank.display_name}</CardTitle>

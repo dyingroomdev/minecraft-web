@@ -57,7 +57,7 @@ class RefreshToken(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     user: Mapped[User] = relationship("User", back_populates="refresh_tokens")
-    replaced_by_token: Mapped["RefreshToken" | None] = relationship(
+    replaced_by_token: Mapped["RefreshToken | None"] = relationship(
         "RefreshToken", remote_side="RefreshToken.id"
     )
 
@@ -69,7 +69,7 @@ class AuditLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     user_id: Mapped[Any] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     action: Mapped[str] = mapped_column(String(128))
-    metadata: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    user: Mapped[User | None] = relationship("User", back_populates="audits")
+    user: Mapped["User | None"] = relationship("User", back_populates="audits")

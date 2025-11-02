@@ -48,7 +48,7 @@ def upgrade() -> None:
         sa.Column("display_name", sa.String(length=96), nullable=False),
         sa.Column("priority", sa.Integer(), nullable=False, server_default="0"),
         sa.Column(
-            "metadata",
+            "meta_data",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
@@ -108,7 +108,7 @@ def upgrade() -> None:
         sa.Column("players_max", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("motd", sa.Text(), nullable=True),
         sa.Column(
-            "metadata",
+            "meta_data",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
@@ -166,7 +166,7 @@ def upgrade() -> None:
         sa.Column("leaderboard_type", sa.String(length=64), nullable=False),
         sa.Column("title", sa.String(length=140), nullable=True),
         sa.Column("entries", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
-        sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column("meta_data", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.UniqueConstraint("season", "leaderboard_type", name="uq_leaderboard_season_type"),
     )
 
@@ -179,7 +179,7 @@ def upgrade() -> None:
         sa.Column("subject", sa.String(length=140), nullable=False),
         sa.Column("body", sa.Text(), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False, server_default="open"),
-        sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column("meta_data", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.ForeignKeyConstraint(["player_id"], ["players.id"], ondelete="SET NULL"),
     )
 

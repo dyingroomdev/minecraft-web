@@ -4,7 +4,7 @@ import asyncio
 import time
 from typing import Dict, Any
 
-import aioredis
+# import aioredis  # Temporarily disabled for Python 3.12 compatibility
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_admin_user, get_db_session, get_settings_dependency
 from app.core.config import Settings
 from app.db.models import User
-from worker.services import RCONService
+# from worker.services import RCONService  # Not available during migrations
 
 router = APIRouter(prefix="/admin/diagnostics")
 
@@ -85,65 +85,19 @@ async def check_database(session: AsyncSession) -> Dict[str, Any]:
 
 async def check_redis(settings: Settings) -> Dict[str, Any]:
     """Check Redis connectivity and performance."""
-    try:
-        start_time = time.time()
-        redis = aioredis.from_url(settings.redis_url)
-        
-        # Ping test
-        await redis.ping()
-        
-        # Set/get test
-        test_key = "diagnostic_test"
-        await redis.set(test_key, "test_value", ex=10)
-        value = await redis.get(test_key)
-        await redis.delete(test_key)
-        
-        # Get info
-        info = await redis.info()
-        
-        await redis.close()
-        response_time = (time.time() - start_time) * 1000
-        
-        return {
-            "status": "healthy",
-            "response_time_ms": round(response_time, 2),
-            "memory_used": info.get("used_memory_human", "unknown"),
-            "connected_clients": info.get("connected_clients", 0),
-            "test_result": value.decode() if value else None
-        }
-        
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "response_time_ms": None
-        }
+    # Temporarily disabled for Python 3.12 compatibility
+    return {
+        "status": "disabled",
+        "error": "Redis diagnostics temporarily disabled for Python 3.12 compatibility",
+        "response_time_ms": None
+    }
 
 
 async def check_rcon(settings: Settings) -> Dict[str, Any]:
     """Check RCON connectivity."""
-    try:
-        start_time = time.time()
-        
-        rcon = RCONService(
-            settings.minecraft_server_host,
-            settings.minecraft_rcon_port,
-            settings.minecraft_rcon_password
-        )
-        
-        # Simple command test
-        result = await rcon._execute_command("list")
-        response_time = (time.time() - start_time) * 1000
-        
-        return {
-            "status": "healthy",
-            "response_time_ms": round(response_time, 2),
-            "server_response": result[:100] + "..." if len(result) > 100 else result
-        }
-        
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "response_time_ms": None
-        }
+    # Temporarily disabled - worker module not available during migrations
+    return {
+        "status": "disabled",
+        "error": "RCON diagnostics temporarily disabled during migrations",
+        "response_time_ms": None
+    }

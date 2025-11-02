@@ -6,10 +6,11 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-import aioredis
+from redis import asyncio as aioredis
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.models import PaymentRequest, Player, RankProduct
 
@@ -75,6 +76,7 @@ class PaymentService:
         self.session.add(payment_request)
         await self.session.commit()
         await self.session.refresh(payment_request)
+        await self._load_relationships(payment_request)
         
         return payment_request
     
@@ -89,10 +91,10 @@ class PaymentService:
         # Check idempotency
         cache_key = f"payment_approval:{payment_id}:{idempotency_key}"
         if await self.redis.get(cache_key):
-            # Already processed, return existing result
             payment = await self._get_payment_request(payment_id)
             if not payment:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+            await self._load_relationships(payment)
             return payment
         
         payment = await self._get_payment_request(payment_id)
@@ -107,6 +109,7 @@ class PaymentService:
         payment.processed_by_user_id = admin_user_id
         
         await self.session.commit()
+        await self._load_relationships(payment)
         
         # Set idempotency cache (24 hour expiry)
         await self.redis.setex(cache_key, 86400, "processed")
@@ -137,6 +140,7 @@ class PaymentService:
         payment.processed_by_user_id = admin_user_id
         
         await self.session.commit()
+        await self._load_relationships(payment)
         
         return payment
     
@@ -176,6 +180,15 @@ class PaymentService:
     
     async def _get_payment_request(self, payment_id: uuid.UUID) -> PaymentRequest | None:
         """Get payment request by ID."""
-        stmt = select(PaymentRequest).where(PaymentRequest.id == payment_id)
+        stmt = (
+            select(PaymentRequest)
+            .options(selectinload(PaymentRequest.rank_product))
+            .where(PaymentRequest.id == payment_id)
+        )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def _load_relationships(self, payment: PaymentRequest | None) -> None:
+        if payment is None:
+            return
+        await self.session.refresh(payment, attribute_names=["rank_product"])

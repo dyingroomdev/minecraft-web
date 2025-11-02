@@ -60,6 +60,24 @@ def validate_image_file(file: UploadFile) -> None:
         ) from e
 
 
+def validate_csv_file(file: UploadFile) -> None:
+    """Validate uploaded CSV file."""
+    
+    # Check file size
+    if hasattr(file, 'size') and file.size and file.size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB"
+        )
+    
+    # Check file extension
+    if not file.filename or not file.filename.lower().endswith('.csv'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be a CSV file"
+        )
+
+
 def sanitize_filename(filename: str) -> str:
     """Sanitize filename to prevent path traversal."""
     import re

@@ -137,3 +137,33 @@ async def test_payment_price_tolerance(client, settings_override):
 
     assert response.status_code == 400
     assert "within 5%" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_get_payment_request_endpoint(client, settings_override):
+    async with SessionFactory() as session:
+        rank_product = RankProduct(
+            rank_code="vip",
+            display_name="VIP Rank",
+            price_bdt=Decimal("500.00"),
+            luckperms_group="vip",
+            is_active=True,
+        )
+        session.add(rank_product)
+        await session.flush()
+
+        payment_request = PaymentRequest(
+            rank_product_id=rank_product.id,
+            mc_username="testplayer",
+            bkash_txid="TXN-LOOKUP",
+            amount_bdt=Decimal("500.00"),
+            status="pending",
+        )
+        session.add(payment_request)
+        await session.commit()
+
+    response = await client.get(f"/api/payments/requests/{payment_request.id}")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == str(payment_request.id)
+    assert payload["rank_product"]["rank_code"] == "vip"

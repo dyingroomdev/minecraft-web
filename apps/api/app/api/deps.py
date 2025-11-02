@@ -74,9 +74,22 @@ async def get_current_user(
     return user
 
 
-async def get_admin_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    if RBACRole.ADMIN not in current_user.roles and RBACRole.OWNER not in current_user.roles:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+def _normalized_roles(user: User) -> set[str]:
+    return {role.upper() for role in user.roles}
+
+
+def require_roles(*roles: RBACRole | str):
+    allowed = {role.value if isinstance(role, RBACRole) else str(role).upper() for role in roles}
+
+    async def _checker(user: User = Depends(get_current_user)) -> User:
+        if not allowed & _normalized_roles(user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        return user
+
+    return _checker
+
+
+async def get_admin_user(current_user: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER))) -> User:
     return current_user
+
+*** End Patch

@@ -136,7 +136,7 @@ class ServerStatusPoller:
             players_online=status_data['players_online'],
             players_max=status_data['players_max'],
             motd=status_data['motd'],
-            metadata={
+            meta_data={
                 'version': status_data['version'],
                 'sample': status_data['sample'],
                 'ping': status_data['ping']

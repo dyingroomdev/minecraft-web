@@ -4,31 +4,120 @@ import csv
 import io
 import uuid
 from datetime import datetime
-from typing import List
 
-import aioredis
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from redis import asyncio as aioredis
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_admin_user, get_db_session, get_settings_dependency
 from app.core.config import Settings
 from app.db.models import AuditLog, PaymentRequest, User
+from app.schemas.payment import PaymentApprovalRequest, PaymentRejectionRequest, PaymentRequestRead
+from app.services.payment import PaymentService
 
 router = APIRouter(prefix="/admin")
+
+
+async def get_redis(settings: Settings = Depends(get_settings_dependency)):
+    redis = aioredis.from_url(settings.redis_url)
+    try:
+        yield redis
+    finally:
+        await redis.close()
+
+
+@router.get("/payments", response_model=list[PaymentRequestRead])
+async def list_payments(
+    status_filter: str = "pending",
+    session: AsyncSession = Depends(get_db_session),
+    _: User = Depends(get_admin_user),
+) -> list[PaymentRequest]:
+    stmt = (
+        select(PaymentRequest)
+        .options(selectinload(PaymentRequest.rank_product))
+        .where(PaymentRequest.status == status_filter)
+        .order_by(PaymentRequest.created_at.desc())
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+@router.post("/payments/{payment_id}/approve", response_model=PaymentRequestRead)
+async def approve_payment(
+    payment_id: uuid.UUID,
+    _: PaymentApprovalRequest,
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    session: AsyncSession = Depends(get_db_session),
+    redis: aioredis.Redis = Depends(get_redis),
+    admin_user: User = Depends(get_admin_user),
+) -> PaymentRequest:
+    if not idempotency_key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Idempotency-Key header required")
+
+    payment_service = PaymentService(session, redis)
+    payment = await payment_service.approve_payment(payment_id, admin_user.id, idempotency_key)
+
+    audit = AuditLog(
+        user_id=admin_user.id,
+        action="payment_approved",
+        metadata={
+            "payment_request_id": str(payment_id),
+            "mc_username": payment.mc_username,
+            "rank_code": payment.rank_product.rank_code if payment.rank_product else None,
+        },
+        notes=f"Payment approved by {admin_user.username}",
+    )
+    session.add(audit)
+    await session.commit()
+
+    return payment
+
+
+@router.post("/payments/{payment_id}/reject", response_model=PaymentRequestRead)
+async def reject_payment(
+    payment_id: uuid.UUID,
+    rejection_data: PaymentRejectionRequest,
+    session: AsyncSession = Depends(get_db_session),
+    redis: aioredis.Redis = Depends(get_redis),
+    admin_user: User = Depends(get_admin_user),
+) -> PaymentRequest:
+    payment_service = PaymentService(session, redis)
+    payment = await payment_service.reject_payment(payment_id, admin_user.id, rejection_data.reason)
+
+    audit = AuditLog(
+        user_id=admin_user.id,
+        action="payment_rejected",
+        metadata={
+            "payment_request_id": str(payment_id),
+            "mc_username": payment.mc_username,
+            "rank_code": payment.rank_product.rank_code if payment.rank_product else None,
+            "reason": rejection_data.reason,
+        },
+        notes=f"Payment rejected by {admin_user.username}",
+    )
+    session.add(audit)
+    await session.commit()
+
+    return payment
 
 
 @router.post("/retry/{payment_request_id}")
 async def retry_payment_fulfillment(
     payment_request_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    settings: Settings = Depends(get_settings_dependency),
     admin_user: User = Depends(get_admin_user),
+    redis: aioredis.Redis = Depends(get_redis),
 ) -> dict:
     """Re-enqueue payment fulfillment for retry."""
     
     # Verify payment exists and is in approved status
-    stmt = select(PaymentRequest).where(PaymentRequest.id == payment_request_id)
+    stmt = (
+        select(PaymentRequest)
+        .options(selectinload(PaymentRequest.rank_product))
+        .where(PaymentRequest.id == payment_request_id)
+    )
     result = await session.execute(stmt)
     payment = result.scalar_one_or_none()
     
@@ -41,8 +130,6 @@ async def retry_payment_fulfillment(
             detail=f"Cannot retry payment with status: {payment.status}"
         )
     
-    # Re-enqueue in Redis
-    redis = aioredis.from_url(settings.redis_url)
     try:
         await redis.lpush("fulfill_rank_queue", str(payment_request_id))
         
@@ -69,8 +156,6 @@ async def retry_payment_fulfillment(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to enqueue: {str(e)}")
-    finally:
-        await redis.close()
 
 
 @router.get("/audit/export")

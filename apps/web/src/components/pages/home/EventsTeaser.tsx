@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin, ArrowRight } from 'lucide-react';
-import { Button } from '../../ui/button';
-import { apiClient } from '../../../lib/api';
+import { Button } from '@/components/ui/button';
+import { apiClient } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 export function EventsTeaser() {
   const { data: events } = useQuery({
@@ -35,12 +36,12 @@ export function EventsTeaser() {
             </p>
             
             <div className="space-y-2 text-sm">
-              {event.start_at && (
+              {event.start_at ? (
                 <div className="flex items-center text-muted-foreground">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {new Date(event.start_at).toLocaleDateString()}
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {formatDate(event.start_at)}
                 </div>
-              )}
+              ) : null}
               {event.location && (
                 <div className="flex items-center text-muted-foreground">
                   <MapPin className="h-4 w-4 mr-2" />

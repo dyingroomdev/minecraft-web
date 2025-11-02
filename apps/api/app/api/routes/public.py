@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 
-import aioredis
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import Select, desc, func, select
+from sqlalchemy import Select, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db_session, get_settings_dependency
-from app.core.config import Settings
+from app.api.deps import get_db_session
 from app.db.models import (
     Guild,
     GuildMember,
@@ -23,6 +20,9 @@ from app.db.models import (
     Rule,
     ServerStatus,
     SocialLink,
+    VoteLink,
+    HeroSlide,
+    ServerFeature,
 )
 from app.schemas.content import (
     EventRead,
@@ -35,6 +35,9 @@ from app.schemas.content import (
     RuleRead,
     ServerStatusRead,
     SocialLinksRead,
+    VoteLinkRead,
+    HeroSlideRead,
+    ServerFeatureRead,
 )
 from app.db.models.content import Event
 
@@ -60,7 +63,7 @@ async def list_news(session: AsyncSession = Depends(get_db_session)) -> list[New
     stmt = (
         select(NewsPost)
         .where(NewsPost.is_draft.is_(False))
-        .order_by(desc(NewsPost.is_pinned), desc(NewsPost.published_at.nullslast()))
+        .order_by(desc(NewsPost.is_pinned), NewsPost.published_at.desc().nullslast())
     )
     result = await session.execute(stmt)
     return result.scalars().all()
@@ -109,22 +112,7 @@ async def get_leaderboard(
     season: str,
     leaderboard_type: str,
     session: AsyncSession = Depends(get_db_session),
-    settings: Settings = Depends(get_settings_dependency),
 ) -> Leaderboard:
-    # Try cache first
-    redis = aioredis.from_url(settings.redis_url)
-    cache_key = f"leaderboard:{season}:{leaderboard_type}"
-    
-    try:
-        cached = await redis.get(cache_key)
-        if cached:
-            data = json.loads(cached)
-            return Leaderboard(**data)
-    except Exception:
-        pass  # Cache miss, continue to DB
-    finally:
-        await redis.close()
-    
     stmt = select(Leaderboard).where(
         Leaderboard.season == season,
         Leaderboard.leaderboard_type == leaderboard_type,
@@ -133,27 +121,16 @@ async def get_leaderboard(
     leaderboard = result.scalar_one_or_none()
     if leaderboard is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Leaderboard not found")
-    
-    # Cache for 5 minutes
-    try:
-        redis = aioredis.from_url(settings.redis_url)
-        await redis.setex(cache_key, 300, json.dumps({
-            "id": str(leaderboard.id),
-            "season": leaderboard.season,
-            "leaderboard_type": leaderboard.leaderboard_type,
-            "title": leaderboard.title,
-            "entries": leaderboard.entries,
-            "metadata": leaderboard.metadata
-        }))
-        await redis.close()
-    except Exception:
-        pass  # Cache write failure, continue
-    
     return leaderboard
 
 
-async def _load_player(session: AsyncSession, player_id: uuid.UUID) -> Player | None:
-    stmt = select(Player).where(Player.id == player_id)
+async def _load_player(session: AsyncSession, identifier: str) -> Player | None:
+    try:
+        player_uuid = uuid.UUID(identifier)
+    except ValueError:
+        stmt = select(Player).where(Player.username.ilike(identifier))
+    else:
+        stmt = select(Player).where(Player.minecraft_uuid == player_uuid)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -177,12 +154,12 @@ async def _load_player_guild(session: AsyncSession, player: Player) -> Guild | N
     return result.scalars().first()
 
 
-@router.get("/players/{player_id}", response_model=PlayerRead)
+@router.get("/players/{identifier}", response_model=PlayerRead)
 async def get_player(
-    player_id: uuid.UUID,
+    identifier: str,
     session: AsyncSession = Depends(get_db_session),
 ) -> PlayerRead:
-    player = await _load_player(session, player_id)
+    player = await _load_player(session, identifier)
     if player is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
 
@@ -214,4 +191,36 @@ async def get_social_links(session: AsyncSession = Depends(get_db_session)) -> S
     links = result.scalars().all()
     payload = {link.platform.lower(): link.url for link in links}
     return SocialLinksRead(**payload)
-*** End of File
+
+
+@router.get("/votes", response_model=list[VoteLinkRead])
+async def list_vote_links(session: AsyncSession = Depends(get_db_session)) -> list[VoteLink]:
+    stmt = (
+        select(VoteLink)
+        .where(VoteLink.is_active.is_(True))
+        .order_by(VoteLink.display_order, VoteLink.created_at)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+@router.get("/hero-slides", response_model=list[HeroSlideRead])
+async def list_hero_slides(session: AsyncSession = Depends(get_db_session)) -> list[HeroSlide]:
+    stmt = (
+        select(HeroSlide)
+        .where(HeroSlide.is_active.is_(True))
+        .order_by(HeroSlide.display_order, HeroSlide.created_at)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+@router.get("/features", response_model=list[ServerFeatureRead])
+async def list_server_features(session: AsyncSession = Depends(get_db_session)) -> list[ServerFeature]:
+    stmt = (
+        select(ServerFeature)
+        .where(ServerFeature.is_active.is_(True))
+        .order_by(ServerFeature.display_order, ServerFeature.created_at)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
