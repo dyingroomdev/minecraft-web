@@ -2,13 +2,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
-import { Navbar } from './components/Navbar';
 import Home from './pages/Home';
 import { AdminProvider } from './contexts/AdminContext';
 import AdminLogin from './components/pages/AdminLogin';
 import AdminForbidden from './components/pages/AdminForbidden';
 import AdminRouteGuard from './components/AdminRouteGuard';
 import AdminLayout from './components/layout/AdminLayout';
+import { PublicLayout } from './components/layout/PublicLayout';
 import AdminOverview from './components/pages/admin/AdminOverview';
 import AdminNews from './components/pages/admin/AdminNews';
 import AdminUsers from './components/pages/admin/AdminUsers';
@@ -45,10 +45,9 @@ function App() {
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={
-                <>
-                  <Navbar />
+                <PublicLayout>
                   <Home />
-                </>
+                </PublicLayout>
               } />
               
               {/* Admin Auth Routes */}

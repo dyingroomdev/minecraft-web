@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.mutable import MutableDict, MutableList
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -164,7 +164,7 @@ class Leaderboard(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     season: Mapped[str] = mapped_column(String(32), nullable=False)
     leaderboard_type: Mapped[str] = mapped_column(String(64), nullable=False)
     title: Mapped[str | None] = mapped_column(String(140), nullable=True)
-    entries: Mapped[list[dict[str, Any]]] = mapped_column(MutableList.as_mutable(JSON_VARIANT), default=list)
+    entries: Mapped[list[dict[str, Any]]] = mapped_column(JSON_VARIANT, default=list)
     meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
 
 
@@ -201,7 +201,7 @@ class VoteLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     url: Mapped[str] = mapped_column(String(255), nullable=False)
     button_text: Mapped[str] = mapped_column(String(64), nullable=False, default="Vote")
-    rewards: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON_VARIANT), default=list)
+    rewards: Mapped[list[str]] = mapped_column(JSON_VARIANT, default=list)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

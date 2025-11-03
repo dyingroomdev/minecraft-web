@@ -3,7 +3,7 @@ export type ServerStatus = {
   online:boolean; player_count:number; motd?:string; version?:string; uptime?:string;
   metadata?: { java_ip?:string; bedrock_ip?:string; region?:string }
 };
-export type VoteLink = { id:string; title:string; url:string; reward:string; cta?:string };
+export type VoteLink = { id:string; title:string; description?:string; url:string; button_text:string; rewards:string[]; display_order:number; is_active:boolean };
 export type Feature = { title:string; description:string; icon?:string; order:number };
 export type Product = { code:string; name:string; price_bdt?:number; duration_days?:number; description?:string };
 export type NewsItem = { slug:string; title:string; summary:string; pinned?:boolean; published_at:string };

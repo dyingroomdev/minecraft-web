@@ -44,10 +44,19 @@ export default function NewsManager() {
   const onSubmit = (data: NewsForm) => {
     if (isReadOnly) return;
     
+    // Clean up empty strings to null for optional fields
+    const cleanData = {
+      ...data,
+      summary: data.summary?.trim() || null,
+      cover_image_url: data.cover_image_url?.trim() || null,
+      published_at: data.published_at || null,
+      scheduled_publish_at: data.scheduled_publish_at || null,
+    };
+    
     if (editingNews) {
-      updateNews.mutate({ id: editingNews.id, ...data });
+      updateNews.mutate({ id: editingNews.id, ...cleanData });
     } else {
-      createNews.mutate(data);
+      createNews.mutate(cleanData);
     }
     
     reset();

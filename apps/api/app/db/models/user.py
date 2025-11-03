@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, JSON, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.mutable import MutableDict, MutableList
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -25,7 +25,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     username: Mapped[str] = mapped_column(String(150))
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    roles: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON_VARIANT), default=list)
+    roles: Mapped[list[str]] = mapped_column(JSON_VARIANT, default=list)
 
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         "RefreshToken",

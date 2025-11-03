@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Save, Upload, Palette } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { Save, Upload, Palette, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { useAdmin } from '@/contexts/AdminContext';
+import { useUploadMedia } from '@/hooks/useMedia';
 import RoleGate from '@/components/RoleGate';
 
 interface BrandSettings {
@@ -21,9 +23,12 @@ interface BrandSettings {
 
 export default function AdminBrand() {
   const { isSuper } = useAdmin();
-  const [settings, setSettings] = useState<BrandSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { register, handleSubmit, reset, watch, setValue } = useForm<BrandSettings>();
+  const uploadMedia = useUploadMedia();
+  
+  const watchedValues = watch();
 
   useEffect(() => {
     fetchSettings();
@@ -38,7 +43,7 @@ export default function AdminBrand() {
       
       if (response.ok) {
         const data = await response.json();
-        setSettings(data);
+        reset(data);
       }
     } catch (error) {
       console.error('Failed to fetch brand settings:', error);
@@ -47,8 +52,8 @@ export default function AdminBrand() {
     }
   };
 
-  const handleSave = async () => {
-    if (!settings || !isSuper) return;
+  const onSubmit = async (data: BrandSettings) => {
+    if (!isSuper) return;
     
     setSaving(true);
     try {
@@ -59,12 +64,12 @@ export default function AdminBrand() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(data)
       });
       
       if (response.ok) {
         const updated = await response.json();
-        setSettings(updated);
+        reset(updated);
         // TODO: Show success toast
       }
     } catch (error) {
@@ -73,11 +78,6 @@ export default function AdminBrand() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleInputChange = (field: keyof BrandSettings, value: string) => {
-    if (!settings) return;
-    setSettings({ ...settings, [field]: value });
   };
 
   if (loading) {
@@ -99,7 +99,7 @@ export default function AdminBrand() {
     );
   }
 
-  if (!settings) {
+  if (!watchedValues.site_name && !loading) {
     return (
       <div className="text-center py-12">
         <h1 className="text-2xl font-bold text-red-400 mb-4">Error</h1>
@@ -114,7 +114,7 @@ export default function AdminBrand() {
         <h1 className="text-2xl font-bold text-white">Brand Settings</h1>
         <RoleGate role="SUPER_ADMIN">
           <Button 
-            onClick={handleSave} 
+            onClick={handleSubmit(onSubmit)} 
             disabled={saving}
             className="bg-brand hover:bg-brand/80"
           >
@@ -133,8 +133,7 @@ export default function AdminBrand() {
               <Label htmlFor="site_name" className="text-gray-300">Site Name</Label>
               <Input
                 id="site_name"
-                value={settings.site_name}
-                onChange={(e) => handleInputChange('site_name', e.target.value)}
+                {...register('site_name')}
                 disabled={!isSuper}
                 className="bg-gray-700 border-gray-600 text-white"
               />
@@ -143,14 +142,13 @@ export default function AdminBrand() {
               <Label htmlFor="tagline" className="text-gray-300">Tagline</Label>
               <Input
                 id="tagline"
-                value={settings.tagline}
-                onChange={(e) => handleInputChange('tagline', e.target.value)}
+                {...register('tagline')}
                 disabled={!isSuper}
                 className="bg-gray-700 border-gray-600 text-white"
                 maxLength={140}
               />
               <p className="text-xs text-gray-400 mt-1">
-                {settings.tagline.length}/140 characters
+                {(watchedValues.tagline || '').length}/140 characters
               </p>
             </div>
           </div>
@@ -169,14 +167,12 @@ export default function AdminBrand() {
                 <Input
                   id="theme_primary"
                   type="color"
-                  value={settings.theme_primary}
-                  onChange={(e) => handleInputChange('theme_primary', e.target.value)}
+                  {...register('theme_primary')}
                   disabled={!isSuper}
                   className="w-16 h-10 p-1 bg-gray-700 border-gray-600"
                 />
                 <Input
-                  value={settings.theme_primary}
-                  onChange={(e) => handleInputChange('theme_primary', e.target.value)}
+                  {...register('theme_primary')}
                   disabled={!isSuper}
                   className="bg-gray-700 border-gray-600 text-white"
                   pattern="^#(?:[0-9a-fA-F]{3}){1,2}$"
@@ -189,14 +185,12 @@ export default function AdminBrand() {
                 <Input
                   id="theme_bg"
                   type="color"
-                  value={settings.theme_bg}
-                  onChange={(e) => handleInputChange('theme_bg', e.target.value)}
+                  {...register('theme_bg')}
                   disabled={!isSuper}
                   className="w-16 h-10 p-1 bg-gray-700 border-gray-600"
                 />
                 <Input
-                  value={settings.theme_bg}
-                  onChange={(e) => handleInputChange('theme_bg', e.target.value)}
+                  {...register('theme_bg')}
                   disabled={!isSuper}
                   className="bg-gray-700 border-gray-600 text-white"
                 />
@@ -208,14 +202,12 @@ export default function AdminBrand() {
                 <Input
                   id="theme_surface"
                   type="color"
-                  value={settings.theme_surface}
-                  onChange={(e) => handleInputChange('theme_surface', e.target.value)}
+                  {...register('theme_surface')}
                   disabled={!isSuper}
                   className="w-16 h-10 p-1 bg-gray-700 border-gray-600"
                 />
                 <Input
-                  value={settings.theme_surface}
-                  onChange={(e) => handleInputChange('theme_surface', e.target.value)}
+                  {...register('theme_surface')}
                   disabled={!isSuper}
                   className="bg-gray-700 border-gray-600 text-white"
                 />
@@ -232,16 +224,34 @@ export default function AdminBrand() {
               <Label className="text-gray-300">Light Logo</Label>
               <div className="flex items-center space-x-3">
                 <Input
-                  value={settings.logo_url_light || ''}
-                  onChange={(e) => handleInputChange('logo_url_light', e.target.value)}
+                  {...register('logo_url_light')}
                   disabled={!isSuper}
                   placeholder="https://example.com/logo-light.png"
                   className="bg-gray-700 border-gray-600 text-white"
                 />
                 <RoleGate role="SUPER_ADMIN">
-                  <Button size="sm" variant="outline" className="border-gray-600">
-                    <Upload className="w-4 h-4" />
-                  </Button>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const result = await uploadMedia.mutateAsync(file);
+                            setValue('logo_url_light', result.url);
+                          } catch (error) {
+                            console.error('Upload failed:', error);
+                          }
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={uploadMedia.isPending}
+                    />
+                    <Button size="sm" variant="outline" className="border-gray-600" disabled={uploadMedia.isPending}>
+                      {uploadMedia.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    </Button>
+                  </div>
                 </RoleGate>
               </div>
             </div>
@@ -249,16 +259,34 @@ export default function AdminBrand() {
               <Label className="text-gray-300">Dark Logo</Label>
               <div className="flex items-center space-x-3">
                 <Input
-                  value={settings.logo_url_dark || ''}
-                  onChange={(e) => handleInputChange('logo_url_dark', e.target.value)}
+                  {...register('logo_url_dark')}
                   disabled={!isSuper}
                   placeholder="https://example.com/logo-dark.png"
                   className="bg-gray-700 border-gray-600 text-white"
                 />
                 <RoleGate role="SUPER_ADMIN">
-                  <Button size="sm" variant="outline" className="border-gray-600">
-                    <Upload className="w-4 h-4" />
-                  </Button>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const result = await uploadMedia.mutateAsync(file);
+                            setValue('logo_url_dark', result.url);
+                          } catch (error) {
+                            console.error('Upload failed:', error);
+                          }
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={uploadMedia.isPending}
+                    />
+                    <Button size="sm" variant="outline" className="border-gray-600" disabled={uploadMedia.isPending}>
+                      {uploadMedia.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    </Button>
+                  </div>
                 </RoleGate>
               </div>
             </div>
@@ -266,16 +294,34 @@ export default function AdminBrand() {
               <Label className="text-gray-300">Favicon</Label>
               <div className="flex items-center space-x-3">
                 <Input
-                  value={settings.favicon_url || ''}
-                  onChange={(e) => handleInputChange('favicon_url', e.target.value)}
+                  {...register('favicon_url')}
                   disabled={!isSuper}
                   placeholder="https://example.com/favicon.ico"
                   className="bg-gray-700 border-gray-600 text-white"
                 />
                 <RoleGate role="SUPER_ADMIN">
-                  <Button size="sm" variant="outline" className="border-gray-600">
-                    <Upload className="w-4 h-4" />
-                  </Button>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*,.ico"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const result = await uploadMedia.mutateAsync(file);
+                            setValue('favicon_url', result.url);
+                          } catch (error) {
+                            console.error('Upload failed:', error);
+                          }
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={uploadMedia.isPending}
+                    />
+                    <Button size="sm" variant="outline" className="border-gray-600" disabled={uploadMedia.isPending}>
+                      {uploadMedia.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    </Button>
+                  </div>
                 </RoleGate>
               </div>
             </div>
@@ -289,33 +335,33 @@ export default function AdminBrand() {
             <div 
               className="p-4 rounded-lg border"
               style={{ 
-                backgroundColor: settings.theme_surface,
-                borderColor: settings.theme_primary + '40'
+                backgroundColor: watchedValues.theme_surface,
+                borderColor: (watchedValues.theme_primary || '#000') + '40'
               }}
             >
               <h4 
                 className="font-bold text-lg"
-                style={{ color: settings.theme_primary }}
+                style={{ color: watchedValues.theme_primary }}
               >
-                {settings.site_name}
+                {watchedValues.site_name || 'Site Name'}
               </h4>
-              <p className="text-gray-300 text-sm">{settings.tagline}</p>
+              <p className="text-gray-300 text-sm">{watchedValues.tagline || 'Tagline'}</p>
             </div>
             
             <div className="flex space-x-2">
               <div 
                 className="w-8 h-8 rounded"
-                style={{ backgroundColor: settings.theme_primary }}
+                style={{ backgroundColor: watchedValues.theme_primary }}
                 title="Primary"
               ></div>
               <div 
                 className="w-8 h-8 rounded"
-                style={{ backgroundColor: settings.theme_bg }}
+                style={{ backgroundColor: watchedValues.theme_bg }}
                 title="Background"
               ></div>
               <div 
                 className="w-8 h-8 rounded"
-                style={{ backgroundColor: settings.theme_surface }}
+                style={{ backgroundColor: watchedValues.theme_surface }}
                 title="Surface"
               ></div>
             </div>

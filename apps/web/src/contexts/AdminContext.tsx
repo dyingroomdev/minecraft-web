@@ -13,6 +13,7 @@ interface AdminContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isSuper: boolean;
+  refreshAuth: () => Promise<void>;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -40,6 +41,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
+        } else if (response.status === 401) {
+          // Token expired, clear it
+          localStorage.removeItem('admin_token');
+          setUser(null);
         } else {
           localStorage.removeItem('admin_token');
         }
@@ -85,8 +90,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const refreshAuth = async () => {
+    await checkAuth();
+  };
+
   return (
-    <AdminContext.Provider value={{ user, isLoading, login, logout, isSuper }}>
+    <AdminContext.Provider value={{ user, isLoading, login, logout, isSuper, refreshAuth }}>
       {children}
     </AdminContext.Provider>
   );

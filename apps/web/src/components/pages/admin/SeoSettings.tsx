@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card } from '../../ui/card';
@@ -21,19 +21,34 @@ export default function SeoSettings() {
   
   const isReadOnly = user?.role === 'ADMIN';
   
-  const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm<SeoFormData>({
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors, isDirty } } = useForm<SeoFormData>({
     resolver: zodResolver(SeoSchema),
-    values: seo ? {
-      default_title: seo.default_title,
-      title_template: seo.title_template,
-      meta_description: seo.meta_description,
-      canonical_base_url: seo.canonical_base_url,
-      og_image_url: seo.og_image_url,
-      twitter_handle: seo.twitter_handle,
-      robots_policy: seo.robots_policy,
-      sitemap_enabled: seo.sitemap_enabled,
-    } : undefined
+    defaultValues: {
+      default_title: '',
+      title_template: '',
+      meta_description: '',
+      canonical_base_url: '',
+      og_image_url: '',
+      twitter_handle: '',
+      robots_policy: 'index,follow',
+      sitemap_enabled: false,
+    }
   });
+
+  useEffect(() => {
+    if (seo) {
+      reset({
+        default_title: seo.default_title,
+        title_template: seo.title_template,
+        meta_description: seo.meta_description,
+        canonical_base_url: seo.canonical_base_url,
+        og_image_url: seo.og_image_url || '',
+        twitter_handle: seo.twitter_handle || '',
+        robots_policy: seo.robots_policy,
+        sitemap_enabled: seo.sitemap_enabled,
+      });
+    }
+  }, [seo, reset]);
 
   const watchedValues = watch();
   const titleTemplate = watchedValues.title_template || '';
@@ -76,7 +91,11 @@ export default function SeoSettings() {
       return;
     }
     
-    uploadOg.mutate(file);
+    uploadOg.mutate(file, {
+      onSuccess: (data) => {
+        setValue('og_image_url', data.url, { shouldDirty: true });
+      }
+    });
   };
 
   const handleTwitterBlur = () => {

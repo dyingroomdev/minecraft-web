@@ -12,14 +12,16 @@ from app.core.enums import RBACRole
 
 
 class ServerStatusRead(BaseModel):
-    status: str
-    players_online: int
-    players_max: int
+    online: bool
+    player_count: int = 0
     motd: str | None = None
-    recorded_at: datetime
-    metadata: dict[str, Any] = Field(alias="meta_data", serialization_alias="metadata")
+    version: str | None = None
+    java_ip: str | None = None
+    bedrock_ip: str | None = None
+    last_poll_utc: datetime
+    ws_clients: int | None = None
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class NewsSummary(BaseModel):

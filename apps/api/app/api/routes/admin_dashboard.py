@@ -4,11 +4,40 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+import httpx
 
 from app.api.deps import get_db_session, require_admin
 from app.db.models import AdminUser, AuditLog, Event, NewsPost, PaymentRequest, User
 
 router = APIRouter(prefix="/admin/dashboard")
+
+
+def _format_uptime_seconds(seconds: int) -> str:
+    """Format uptime seconds into human readable format."""
+    days = seconds // 86400
+    hours = (seconds % 86400) // 3600
+    minutes = (seconds % 3600) // 60
+    
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    
+    return " ".join(parts) if parts else "0m"
+
+
+def _format_uptime_from_diagnostics() -> str:
+    """Get uptime from diagnostics and format it."""
+    try:
+        from app.api.routes.admin_diagnostics import _get_start_time
+        import time
+        uptime_sec = int(time.time() - _get_start_time())
+        return _format_uptime_seconds(uptime_sec)
+    except:
+        return "Unknown"
 
 
 @router.get("/stats")
@@ -41,7 +70,7 @@ async def get_dashboard_stats(
         "total_news": news_count.scalar() or 0,
         "total_events": events_count.scalar() or 0,
         "total_users": users_count.scalar() or 0,
-        "uptime": "7d 14h 32m"  # Mock for now
+        "uptime": _format_uptime_from_diagnostics()
     }
 
 

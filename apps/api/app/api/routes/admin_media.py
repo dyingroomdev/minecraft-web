@@ -9,9 +9,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 
-from app.api.deps import get_admin_user, get_settings_dependency
+from app.api.deps import require_admin, get_settings_dependency
 from app.core.config import Settings
-from app.db.models import User
+from app.db.models import AdminUser
 from app.utils.file_validation import sanitize_filename, validate_image_file
 
 
@@ -25,7 +25,7 @@ def _ensure_directory(path: str) -> None:
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def upload_media_file(
     file: UploadFile = File(...),
-    _: User = Depends(get_admin_user),
+    _: AdminUser = Depends(require_admin()),
     settings: Settings = Depends(get_settings_dependency),
 ) -> dict[str, Any]:
     """Upload an image file and return its accessible URL."""
@@ -45,7 +45,9 @@ async def upload_media_file(
     except Exception as exc:  # pragma: no cover - defensive, file system errors
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to store file") from exc
 
-    url = settings.media_url_path.rstrip("/") + f"/{saved_name}"
+    # Return full URL instead of relative path
+    base_url = "http://localhost:8001"  # TODO: Make this configurable
+    url = f"{base_url}{settings.media_url_path.rstrip('/')}/{saved_name}"
     return {
         "filename": saved_name,
         "url": url,

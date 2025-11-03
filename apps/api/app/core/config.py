@@ -70,8 +70,13 @@ class Settings(BaseSettings):
     discord_api_base: str = Field(default="https://discord.com/api", alias="DISCORD_API_BASE")
     minecraft_server_host: str = Field(default="localhost", alias="MINECRAFT_SERVER_HOST")
     minecraft_server_port: int = Field(default=25565, alias="MINECRAFT_SERVER_PORT")
+    minecraft_rcon_host: str = Field(default="localhost", alias="MINECRAFT_RCON_HOST")
     minecraft_rcon_port: int = Field(default=25575, alias="MINECRAFT_RCON_PORT")
     minecraft_rcon_password: str = Field(default="", alias="MINECRAFT_RCON_PASSWORD")
+    mc_java_host: str = Field(default="play.amzcraft.xyz", alias="MC_JAVA_HOST")
+    mc_bedrock_host: str = Field(default="bedrock.amzcraft.xyz", alias="MC_BEDROCK_HOST")
+    mcsrv_base: str = Field(default="https://api.mcsrvstat.us", alias="MCSRV_BASE")
+    status_ttl_seconds: int = Field(default=12, alias="STATUS_TTL_SECONDS")
     cors_allowed_origins: list[str] = Field(
         default=["http://localhost:5173", "http://localhost:3000"],
         alias="CORS_ALLOWED_ORIGINS",

@@ -7,7 +7,8 @@ import uuid
 from typing import AsyncIterator
 
 import httpx
-from fastapi import Depends, HTTPException, status
+import redis.asyncio as aioredis
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,12 @@ def get_oauth_scheme() -> OAuth2PasswordBearer:
     return OAuth2PasswordBearer(tokenUrl="/auth/discord/login")
 
 
+def get_admin_oauth_scheme() -> OAuth2PasswordBearer:
+    return OAuth2PasswordBearer(tokenUrl="/admin/auth/login")
+
+
 oauth2_scheme = get_oauth_scheme()
+admin_oauth2_scheme = get_admin_oauth_scheme()
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
@@ -43,6 +49,15 @@ async def get_settings_dependency() -> Settings:
 async def get_http_client() -> AsyncIterator[httpx.AsyncClient]:
     async with httpx.AsyncClient(timeout=10.0) as client:
         yield client
+
+
+async def get_redis() -> AsyncIterator[aioredis.Redis]:
+    settings = get_settings()
+    redis = aioredis.from_url(settings.redis_url)
+    try:
+        yield redis
+    finally:
+        await redis.close()
 
 
 async def get_current_user(
@@ -93,12 +108,29 @@ async def get_admin_user(current_user: User = Depends(require_roles(RBACRole.ADM
     return current_user
 
 
+async def get_admin_token_from_request(request: Request) -> str:
+    """Extract admin token from Authorization header."""
+    authorization = request.headers.get("Authorization")
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header missing")
+    
+    try:
+        scheme, token = authorization.split(" ", 1)
+        if scheme.lower() != "bearer":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization scheme")
+        return token
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization header")
+
+
 async def get_current_admin_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings_dependency),
 ) -> AdminUser:
     """Get current admin user from JWT token."""
+    token = await get_admin_token_from_request(request)
+    
     try:
         payload = decode_jwt_token(token=token, secret=settings.jwt_secret, algorithm=settings.jwt_algorithm)
     except InvalidTokenError as exc:

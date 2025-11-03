@@ -10,7 +10,7 @@ from fastapi.responses import Response
 from sqlalchemy import Select, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db_session
+from app.api.deps import get_db_session, get_redis, get_settings
 from app.db.models import (
     Guild,
     GuildMember,
@@ -42,22 +42,29 @@ from app.schemas.content import (
 )
 from app.db.models.content import Event
 from app.services import leaderboard_cache
+from app.services.status_service import build_snapshot
+from app.core.config import Settings
+import redis.asyncio as aioredis
 
 router = APIRouter(prefix="/api")
 
 
-async def _ensure_latest_server_status(session: AsyncSession) -> ServerStatus | None:
-    stmt: Select = select(ServerStatus).order_by(desc(ServerStatus.recorded_at)).limit(1)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+STATUS_KEY = "amz:status:snapshot"
+STATUS_CH = "amz:status:channel"
 
 
 @router.get("/status", response_model=ServerStatusRead)
-async def get_server_status(session: AsyncSession = Depends(get_db_session)) -> ServerStatus:
-    status_row = await _ensure_latest_server_status(session)
-    if status_row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Server status unavailable")
-    return status_row
+async def get_server_status(
+    r: aioredis.Redis = Depends(get_redis),
+    s: Settings = Depends(get_settings)
+) -> dict:
+    cached = await r.get(STATUS_KEY)
+    if cached:
+        return json.loads(cached)
+    
+    snap = await build_snapshot(s.mc_java_host, s.mc_bedrock_host, s.mcsrv_base)
+    await r.setex(STATUS_KEY, s.status_ttl_seconds, json.dumps(snap))
+    return snap
 
 
 @router.get("/news", response_model=list[NewsSummary])

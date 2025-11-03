@@ -16,6 +16,7 @@ from app.db.models import AdminUser
 from app.db.models import (
     Event,
     HeroSlide,
+    Leaderboard,
     NewsPost,
     Rule,
     ServerFeature,
@@ -381,11 +382,34 @@ async def create_vote_link(
     session: AsyncSession = Depends(get_db_session),
     _: AdminUser = Depends(require_admin()),
 ) -> VoteLink:
-    vote_link = VoteLink(**payload.model_dump())
-    session.add(vote_link)
+    import json
+    from sqlalchemy import text
+    
+    # Use raw SQL to bypass MutableList issues
+    vote_id = uuid.uuid4()
+    rewards_json = json.dumps(payload.rewards or [])
+    
+    await session.execute(
+        text("""
+            INSERT INTO vote_links (id, title, description, url, button_text, rewards, display_order, is_active, created_at, updated_at)
+            VALUES (:id, :title, :description, :url, :button_text, :rewards, :display_order, :is_active, NOW(), NOW())
+        """),
+        {
+            "id": vote_id,
+            "title": payload.title,
+            "description": payload.description,
+            "url": payload.url,
+            "button_text": payload.button_text,
+            "rewards": rewards_json,
+            "display_order": payload.display_order,
+            "is_active": payload.is_active
+        }
+    )
     await session.commit()
-    await session.refresh(vote_link)
-    return vote_link
+    
+    # Fetch the created record
+    result = await session.execute(select(VoteLink).where(VoteLink.id == vote_id))
+    return result.scalar_one()
 
 
 @router.patch("/votes/{vote_id}", response_model=VoteLinkRead)
@@ -441,6 +465,8 @@ async def update_social_links(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided")
 
     for platform_key, url in updates.items():
+        if not url:  # Skip null/empty URLs
+            continue
         normalized = platform_key.lower()
         result = await session.execute(select(SocialLink).where(SocialLink.platform == normalized))
         record = result.scalar_one_or_none()
@@ -563,3 +589,14 @@ async def delete_server_feature(
     await session.delete(feature)
     await session.commit()
     return None
+
+
+@router.post("/leaderboards/upload", status_code=status.HTTP_200_OK)
+async def upload_leaderboard(
+    session: AsyncSession = Depends(get_db_session),
+    _: AdminUser = Depends(require_admin()),
+) -> dict[str, str]:
+    """Placeholder endpoint for leaderboard upload functionality."""
+    # This is a minimal implementation to prevent 404 errors
+    # Add actual leaderboard upload logic here when needed
+    return {"message": "Leaderboard upload endpoint - not yet implemented"}
