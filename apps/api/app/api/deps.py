@@ -91,5 +91,3 @@ def require_roles(*roles: RBACRole | str):
 
 async def get_admin_user(current_user: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER))) -> User:
     return current_user
-
-*** End Patch

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from app.middleware.security import sanitize_markdown
+from app.middleware.security import sanitize_markdown, sanitize_text
 from app.utils.file_validation import validate_image_file, sanitize_filename
 
 
@@ -23,6 +23,12 @@ def test_sanitize_markdown():
     result = sanitize_markdown(link_content)
     assert 'href="https://example.com"' in result
     assert 'onclick' not in result
+
+
+def test_sanitize_text():
+    assert sanitize_text("<b>Hello</b>") == "Hello"
+    assert sanitize_text(None) is None
+    assert sanitize_text(" spaced ") == "spaced"
 
 
 def test_validate_image_file_valid():

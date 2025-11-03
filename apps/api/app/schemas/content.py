@@ -91,6 +91,10 @@ class RuleUpdate(BaseModel):
     is_pinned: bool | None = None
 
 
+class RuleReorder(BaseModel):
+    order: list[uuid.UUID]
+
+
 class EventRead(BaseModel):
     id: uuid.UUID
     slug: str
@@ -100,6 +104,7 @@ class EventRead(BaseModel):
     end_at: datetime | None = None
     location: str | None = None
     is_active: bool
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

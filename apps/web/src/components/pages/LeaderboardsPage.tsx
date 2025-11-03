@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 
@@ -29,6 +29,13 @@ export function LeaderboardsPage() {
     }
     return data.metadata.available_types as string[];
   }, [data]);
+
+  useEffect(() => {
+    if (!data || leaderboardTypes.length === 0) return;
+    if (!leaderboardTypes.includes(currentType)) {
+      handleTypeChange(leaderboardTypes[0]);
+    }
+  }, [data, currentType, leaderboardTypes]);
 
   const handleTypeChange = (type: string) => {
     const next = new URLSearchParams(searchParams);

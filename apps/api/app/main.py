@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from contextlib import suppress
 
 from fastapi import APIRouter, FastAPI
+from fastapi.staticfiles import StaticFiles
 from redis import asyncio as aioredis
 
 from app.api.api import api_router
@@ -28,6 +30,8 @@ def create_app() -> FastAPI:
     application = FastAPI(title="AMZCraft API")
     settings = get_settings()
     setup_security_middleware(application, settings)
+    Path(settings.media_root_path).mkdir(parents=True, exist_ok=True)
+    application.mount(settings.media_url_path, StaticFiles(directory=settings.media_root_path), name="media")
     application.include_router(router)
     application.include_router(api_router)
 

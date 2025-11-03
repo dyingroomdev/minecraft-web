@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -48,6 +48,21 @@ async def test_news_listing_excludes_drafts(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_news_listing_excludes_future_scheduled(client, db_session):
+    future = datetime.now(timezone.utc) + timedelta(days=1)
+    scheduled = NewsPost(slug="future", title="Future", content="Soon", is_draft=False, scheduled_publish_at=future)
+    db_session.add(scheduled)
+    await db_session.commit()
+
+    response = await client.get("/api/news")
+    assert response.status_code == 200
+    assert response.json() == []
+
+    detail = await client.get("/api/news/future")
+    assert detail.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_rules_endpoint_returns_ordered_rules(client, db_session):
     rule = Rule(
         slug="inform-officials-before-war",
@@ -87,6 +102,24 @@ async def test_events_active_endpoint_filters_by_activity(client, db_session):
     assert "active" in events
     assert "scheduled" in events
     assert "inactive" not in events
+
+
+@pytest.mark.asyncio
+async def test_events_calendar_and_listing_endpoints(client, db_session):
+    now = datetime.now(timezone.utc)
+    first_event = Event(slug="build", title="Build Jam", description="Collaborative build night", start_at=now, is_active=True)
+    second_event = Event(slug="tournament", title="PvP Cup", description="Competitive bracket", start_at=now + timedelta(days=7), location="Arena")
+    db_session.add_all([first_event, second_event])
+    await db_session.commit()
+
+    listing = await client.get("/api/events")
+    assert listing.status_code == 200
+    assert len(listing.json()) == 2
+
+    ics = await client.get("/api/events/calendar.ics")
+    assert ics.status_code == 200
+    assert ics.headers["content-type"].startswith("text/calendar")
+    assert "SUMMARY:Build Jam" in ics.text
 
 
 @pytest.mark.asyncio

@@ -32,6 +32,11 @@ export function AdminPayments() {
     onSuccess: refreshPayments,
   });
 
+  const retryMutation = useMutation({
+    mutationFn: (id: string) => apiClient.retryPayment(id),
+    onSuccess: refreshPayments,
+  });
+
   const handleApprove = (payment: PaymentRequest) => {
     approveMutation.mutate({ id: payment.id });
   };
@@ -107,6 +112,16 @@ export function AdminPayments() {
                         Reject
                       </Button>
                     </>
+                  ) : null}
+                  {['approved', 'failed'].includes(payment.status) ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => retryMutation.mutate(payment.id)}
+                      disabled={retryMutation.isLoading}
+                    >
+                      {retryMutation.isLoading ? 'Re-enqueue…' : 'Retry Fulfillment'}
+                    </Button>
                   ) : null}
                   {payment.status === 'rejected' && payment.rejection_reason ? (
                     <span className="text-destructive">

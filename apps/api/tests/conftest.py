@@ -28,6 +28,7 @@ from app.core.config import Settings, get_settings
 from app.db.base import Base
 from app.db.session import engine
 from app.main import app
+from app.services import leaderboard_cache
 
 SessionTesting = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
 
@@ -124,8 +125,17 @@ async def client(db_session: AsyncSession, settings_override: Settings):
 
     app.dependency_overrides[payments.get_redis] = _override_redis
     app.dependency_overrides[admin_payments.get_redis] = _override_redis
+    app.state.test_dummy_redis = dummy_redis
 
     async with AsyncClient(app=app, base_url="http://testserver") as api_client:
         yield api_client
 
     app.dependency_overrides.clear()
+    app.state.test_dummy_redis = None
+
+
+@pytest.fixture(autouse=True)
+def _clear_leaderboard_cache():
+    leaderboard_cache.clear()
+    yield
+    leaderboard_cache.clear()

@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     )
     rate_limit_per_minute: int = Field(default=100, alias="RATE_LIMIT_PER_MINUTE")
     enable_status_poller: bool = Field(default=True, alias="ENABLE_STATUS_POLLER")
+    media_root: str = Field(default="media", alias="MEDIA_ROOT")
+    media_url_path: str = Field(default="/api/media", alias="MEDIA_URL_PATH")
 
     oauth_scopes: tuple[str, ...] = ("identify", "email", "guilds.members.read")
 
@@ -140,6 +142,11 @@ class Settings(BaseSettings):
     @property
     def refresh_cookie_samesite(self) -> str:
         return self.jwt_refresh_cookie_samesite.lower()
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def media_root_path(self) -> str:
+        return self.media_root
 
 
 @lru_cache

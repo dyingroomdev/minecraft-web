@@ -1,54 +1,51 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { Calendar, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { apiClient } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { useNews } from '@/lib/hooks';
 
-export function NewsTeaser() {
-  const { data: news } = useQuery({
-    queryKey: ['news'],
-    queryFn: () => apiClient.getNews(),
-  });
+function NewsSkeleton() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-6 py-12">
+      <div className="mb-6 h-8 w-48 animate-pulse rounded bg-surface2" />
+      <div className="grid gap-6 md:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="h-40 animate-pulse rounded-2xl bg-surface2" />
+        ))}
+      </div>
+    </section>
+  );
+}
 
-  const latestNews = news?.slice(0, 3) || [];
+export default function NewsTeaser() {
+  const { data, isLoading } = useNews();
+
+  if (isLoading) return <NewsSkeleton />;
+  if (!data?.length) return null;
+
+  const items = data.slice(0, 3);
 
   return (
-    <section className="container mx-auto px-4">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold">Latest News</h2>
-        <Link to="/news">
-          <Button variant="outline">
-            View All <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </Link>
+    <section id="news" className="mx-auto max-w-[1200px] px-6 py-12">
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="font-display text-2xl text-on md:text-3xl">Latest News</h2>
+        <a href="/news" className="text-sm font-semibold text-brand hover:text-brand2">
+          View all →
+        </a>
       </div>
-      
-      <div className="grid md:grid-cols-3 gap-6">
-        {latestNews.map((post) => (
-          <Link
-            key={post.id}
-            to={`/news/${post.slug}`}
-            className="bg-card rounded-lg border p-6 hover:shadow-lg transition-shadow"
+      <div className="grid gap-6 md:grid-cols-3">
+        {items.map((item) => (
+          <a
+            key={item.slug}
+            href={`/news/${item.slug}`}
+            className="rounded-2xl border border-accent/30 bg-surface p-6 transition hover:border-brand/40"
           >
-            {post.is_pinned && (
-              <span className="inline-block bg-lime-500 text-forest-900 text-xs px-2 py-1 rounded mb-3">
-                Pinned
-              </span>
-            )}
-            <h3 className="font-semibold mb-2 line-clamp-2">{post.title}</h3>
-            {post.summary && (
-              <p className="text-muted-foreground text-sm mb-3 line-clamp-3">
-                {post.summary}
-              </p>
-            )}
-                {post.published_at ? (
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <Calendar className="mr-1 h-3 w-3" />
-                    {formatDate(post.published_at)}
-                  </div>
-                ) : null}
-          </Link>
+            <div className="text-lg font-semibold text-on">{item.title}</div>
+            <p className="mt-2 line-clamp-3 text-sm text-on/70">{item.summary}</p>
+            <div className="mt-3 text-xs text-on/50">
+              {new Date(item.published_at).toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </div>
+          </a>
         ))}
       </div>
     </section>

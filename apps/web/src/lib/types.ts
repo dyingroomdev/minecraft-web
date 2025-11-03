@@ -78,6 +78,7 @@ export const EventSchema = z.object({
   end_at: z.string().nullable(),
   location: z.string().nullable(),
   is_active: z.boolean(),
+  created_at: z.string(),
 });
 
 export const RuleSchema = z.object({
@@ -168,6 +169,37 @@ export const ServerFeatureSchema = z.object({
 export const HeroSlideCreateSchema = HeroSlideSchema.omit({ id: true });
 export const ServerFeatureCreateSchema = ServerFeatureSchema.omit({ id: true });
 
+export const DiagnosticsDetailSchema = z.object({
+  status: z.string(),
+  response_time_ms: z.number().nullable().optional(),
+  error: z.string().optional(),
+  version: z.string().optional(),
+  mode: z.string().optional(),
+  top_tables: z
+    .array(
+      z.object({
+        schema: z.string(),
+        table: z.string(),
+        operations: z.number(),
+      })
+    )
+    .optional(),
+});
+
+export const DiagnosticsReportSchema = z.object({
+  timestamp: z.number(),
+  overall_status: z.string(),
+  database: DiagnosticsDetailSchema,
+  redis: DiagnosticsDetailSchema,
+  rcon: DiagnosticsDetailSchema,
+});
+
+export const PaymentRetryResponseSchema = z.object({
+  message: z.string(),
+  payment_id: z.string(),
+  status: z.string(),
+});
+
 export type ServerStatus = z.infer<typeof ServerStatusSchema>;
 export type NewsPost = z.infer<typeof NewsPostSchema>;
 export type Event = z.infer<typeof EventSchema>;
@@ -181,3 +213,62 @@ export type Leaderboard = z.infer<typeof LeaderboardSchema>;
 export type PlayerProfile = z.infer<typeof PlayerProfileSchema>;
 export type HeroSlide = z.infer<typeof HeroSlideSchema>;
 export type ServerFeature = z.infer<typeof ServerFeatureSchema>;
+export type DiagnosticsReport = z.infer<typeof DiagnosticsReportSchema>;
+
+export type HomepageHeroSlide = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  ctaText?: string;
+  ctaUrl?: string;
+  order: number;
+};
+
+export type HomepageServerStatus = {
+  online: boolean;
+  player_count: number;
+  motd?: string;
+  version?: string;
+  uptime?: string;
+  last_checked?: string;
+  java_ip?: string;
+  bedrock_ip?: string;
+};
+
+export type HomepageVoteLink = {
+  id: string;
+  title: string;
+  url: string;
+  reward?: string;
+  cta?: string;
+  order: number;
+};
+
+export type HomepageFeature = {
+  id: string;
+  title: string;
+  description: string;
+  icon?: string;
+  order: number;
+};
+
+export type HomepageRankProduct = {
+  code: string;
+  name: string;
+  price_bdt?: number;
+  duration_days?: number;
+  description?: string;
+};
+
+export type HomepageNewsSummary = {
+  slug: string;
+  title: string;
+  summary: string;
+  pinned?: boolean;
+  published_at: string;
+};
+
+export type HomepageSocialLinks = Partial<
+  Record<'discord' | 'twitter' | 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'website', string>
+>;

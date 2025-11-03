@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -31,6 +32,7 @@ from app.schemas.content import (
     RuleCreate,
     RuleRead,
     RuleUpdate,
+    RuleReorder,
     SocialLinksRead,
     SocialLinksUpdate,
     VoteLinkCreate,
@@ -52,6 +54,31 @@ router = APIRouter()
 def _generate_slug(value: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower()).strip("-")
     return slug or str(uuid.uuid4())
+
+
+async def _ensure_unique_slug(
+    session: AsyncSession,
+    slug: str,
+    exclude_id: uuid.UUID | None = None,
+) -> str:
+    candidate = slug
+    suffix = 2
+
+    while True:
+        stmt = select(NewsPost).where(NewsPost.slug == candidate)
+        if exclude_id is not None:
+            stmt = stmt.where(NewsPost.id != exclude_id)
+        result = await session.execute(stmt)
+        existing = result.scalar_one_or_none()
+        if existing is None:
+            return candidate
+        candidate = f"{slug}-{suffix}"
+        suffix += 1
+
+
+async def _generate_unique_slug(session: AsyncSession, title: str) -> str:
+    base = _generate_slug(title)
+    return await _ensure_unique_slug(session, base)
 
 
 async def _get_news_or_404(session: AsyncSession, news_id: uuid.UUID) -> NewsPost:
@@ -76,6 +103,17 @@ async def _get_rule_or_404(session: AsyncSession, rule_id: uuid.UUID) -> Rule:
     if rule is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
     return rule
+
+
+@router.get("/rules", response_model=list[RuleRead])
+async def list_rules_admin(
+    session: AsyncSession = Depends(get_db_session),
+    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+) -> list[Rule]:
+    result = await session.execute(
+        select(Rule).order_by(Rule.is_pinned.desc(), Rule.display_order, Rule.created_at)
+    )
+    return result.scalars().all()
 
 
 async def _get_vote_link_or_404(session: AsyncSession, vote_id: uuid.UUID) -> VoteLink:
@@ -109,10 +147,29 @@ async def create_news(
     _: User = Depends(get_admin_user),
 ) -> NewsPost:
     data = payload.model_dump()
-    if not data.get("slug"):
-        data["slug"] = _generate_slug(payload.title)
+    requested_slug = data.get("slug")
+
+    if requested_slug:
+        data["slug"] = await _ensure_unique_slug(session, _generate_slug(requested_slug))
+    else:
+        data["slug"] = await _generate_unique_slug(session, payload.title)
+
     if data.get("content"):
         data["content"] = sanitize_markdown(data["content"])
+
+    data["title"] = sanitize_text(data.get("title"))
+    if data.get("summary") is not None:
+        data["summary"] = sanitize_text(data.get("summary"))
+    if data.get("cover_image_url") is not None:
+        data["cover_image_url"] = sanitize_text(data.get("cover_image_url"))
+
+    now = datetime.now(timezone.utc)
+    scheduled = data.get("scheduled_publish_at")
+    if not data.get("is_draft"):
+        if scheduled and scheduled <= now:
+            data.setdefault("published_at", scheduled)
+        elif not scheduled and data.get("published_at") is None:
+            data["published_at"] = now
 
     news = NewsPost(**data)
     session.add(news)
@@ -132,8 +189,25 @@ async def update_news(
     updates = payload.model_dump(exclude_unset=True)
     if updates.get("content"):
         updates["content"] = sanitize_markdown(updates["content"])
+    if updates.get("title"):
+        updates["title"] = sanitize_text(updates["title"])
+    if "summary" in updates and updates["summary"] is not None:
+        updates["summary"] = sanitize_text(updates["summary"])
+    if "cover_image_url" in updates and updates["cover_image_url"] is not None:
+        updates["cover_image_url"] = sanitize_text(updates["cover_image_url"])
+    if updates.get("slug"):
+        updates["slug"] = await _ensure_unique_slug(session, _generate_slug(updates["slug"]), exclude_id=news.id)
+
     for field, value in updates.items():
         setattr(news, field, value)
+
+    if not news.is_draft:
+        now = datetime.now(timezone.utc)
+        if news.scheduled_publish_at and news.scheduled_publish_at <= now:
+            news.published_at = news.scheduled_publish_at
+        elif news.published_at is None and news.scheduled_publish_at is None:
+            news.published_at = now
+
     await session.commit()
     await session.refresh(news)
     return news
@@ -197,8 +271,13 @@ async def create_rule(
     session: AsyncSession = Depends(get_db_session),
     _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
 ) -> Rule:
-    rule = Rule(**payload.model_dump())
-    rule.content = sanitize_markdown(rule.content)
+    data = payload.model_dump()
+    data["title"] = sanitize_text(data["title"])
+    data["content"] = sanitize_markdown(data["content"])
+    if data.get("category") is not None:
+        data["category"] = sanitize_text(data["category"])
+
+    rule = Rule(**data)
     session.add(rule)
     await session.commit()
     await session.refresh(rule)
@@ -216,6 +295,10 @@ async def update_rule(
     for field, value in payload.model_dump(exclude_unset=True).items():
         if field == "content" and value is not None:
             value = sanitize_markdown(value)
+        if field == "title" and value is not None:
+            value = sanitize_text(value)
+        if field == "category" and value is not None:
+            value = sanitize_text(value)
         setattr(rule, field, value)
     await session.commit()
     await session.refresh(rule)
@@ -230,6 +313,36 @@ async def delete_rule(
 ) -> None:
     rule = await _get_rule_or_404(session, rule_id)
     await session.delete(rule)
+    await session.commit()
+    return None
+
+
+@router.post("/rules/reorder", status_code=status.HTTP_204_NO_CONTENT)
+async def reorder_rules(
+    payload: RuleReorder,
+    session: AsyncSession = Depends(get_db_session),
+    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+) -> None:
+    result = await session.execute(
+        select(Rule).order_by(Rule.is_pinned.desc(), Rule.display_order, Rule.created_at)
+    )
+    rules = result.scalars().all()
+
+    pinned = [rule for rule in rules if rule.is_pinned]
+    movable = [rule for rule in rules if not rule.is_pinned]
+    movable_ids = {rule.id for rule in movable}
+
+    if set(payload.order) != movable_ids or len(payload.order) != len(movable):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order must include all non-pinned rules")
+
+    for index, pinned_rule in enumerate(pinned):
+        pinned_rule.display_order = index
+
+    offset = len(pinned)
+    lookup = {rule.id: rule for rule in movable}
+    for position, rule_id in enumerate(payload.order, start=offset):
+        lookup[rule_id].display_order = position
+
     await session.commit()
     return None
 

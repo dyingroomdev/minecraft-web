@@ -3,6 +3,7 @@
 from . import (
     admin,
     admin_diagnostics,
+    admin_media,
     admin_leaderboards,
     admin_payments,
     admin_rules,
@@ -17,6 +18,7 @@ from . import (
 __all__ = [
     "admin",
     "admin_diagnostics",
+    "admin_media",
     "admin_leaderboards",
     "admin_payments",
     "admin_rules",

@@ -62,7 +62,7 @@ async def approve_payment(
     audit = AuditLog(
         user_id=admin_user.id,
         action="payment_approved",
-        metadata={
+        meta_data={
             "payment_request_id": str(payment_id),
             "mc_username": payment.mc_username,
             "rank_code": payment.rank_product.rank_code if payment.rank_product else None,
@@ -89,7 +89,7 @@ async def reject_payment(
     audit = AuditLog(
         user_id=admin_user.id,
         action="payment_rejected",
-        metadata={
+        meta_data={
             "payment_request_id": str(payment_id),
             "mc_username": payment.mc_username,
             "rank_code": payment.rank_product.rank_code if payment.rank_product else None,
@@ -137,7 +137,7 @@ async def retry_payment_fulfillment(
         audit = AuditLog(
             user_id=admin_user.id,
             action="payment_retry",
-            metadata={
+            meta_data={
                 "payment_request_id": str(payment_request_id),
                 "previous_status": payment.status,
                 "mc_username": payment.mc_username,
@@ -168,6 +168,7 @@ async def export_audit_logs(
     
     stmt = (
         select(AuditLog)
+        .options(selectinload(AuditLog.user))
         .order_by(AuditLog.created_at.desc())
         .limit(limit)
     )
@@ -195,7 +196,7 @@ async def export_audit_logs(
             str(log.user_id) if log.user_id else "",
             log.user.username if log.user else "",
             log.action,
-            str(log.metadata) if log.metadata else "",
+            str(log.meta_data) if log.meta_data else "",
             log.notes or ""
         ])
     
@@ -206,7 +207,7 @@ async def export_audit_logs(
     export_audit = AuditLog(
         user_id=admin_user.id,
         action="audit_export",
-        metadata={"exported_count": len(audit_logs), "limit": limit},
+        meta_data={"exported_count": len(audit_logs), "limit": limit},
         notes=f"Audit logs exported by {admin_user.username}"
     )
     session.add(export_audit)

@@ -1,133 +1,152 @@
 """Admin leaderboard management endpoints."""
 
+from __future__ import annotations
+
 import csv
 import json
-import uuid
 from io import StringIO
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_admin_user, get_db_session
 from app.db.models import Leaderboard, User
-from app.utils.file_validation import validate_csv_file
+from app.middleware.security import sanitize_text
+from app.schemas.content import LeaderboardRead
+from app.services import leaderboard_cache
 
 router = APIRouter(prefix="/admin/leaderboards")
 
 
-@router.post("/upload", status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=LeaderboardRead, status_code=status.HTTP_201_CREATED)
 async def upload_leaderboard(
-    season: str,
-    leaderboard_type: str,
+    season: str = Form(...),
+    leaderboard_type: str = Form(...),
+    title: str | None = Form(default=None),
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_db_session),
-    admin_user: User = Depends(get_admin_user),
-) -> Dict[str, Any]:
+    _: User = Depends(get_admin_user),
+) -> LeaderboardRead:
     """Upload leaderboard data from CSV or JSON file."""
-    
+
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Filename required")
-    
-    file_ext = file.filename.split('.')[-1].lower()
-    
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Filename required")
+
+    extension = file.filename.rsplit(".", 1)[-1].lower()
+    raw_content = await file.read()
+
     try:
-        content = await file.read()
-        content_str = content.decode('utf-8')
-        
-        if file_ext == 'csv':
-            entries = parse_csv_leaderboard(content_str)
-        elif file_ext == 'json':
-            entries = parse_json_leaderboard(content_str)
+        content = raw_content.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to decode file as UTF-8") from exc
+
+    try:
+        if extension == "csv":
+            entries = _parse_csv(content)
+        elif extension == "json":
+            entries = _parse_json(content)
         else:
-            raise HTTPException(status_code=400, detail="Only CSV and JSON files supported")
-        
-        # Upsert leaderboard
-        stmt = select(Leaderboard).where(
-            Leaderboard.season == season,
-            Leaderboard.leaderboard_type == leaderboard_type
-        )
-        result = await session.execute(stmt)
-        leaderboard = result.scalar_one_or_none()
-        
-        if leaderboard:
-            leaderboard.entries = entries
-        else:
-            leaderboard = Leaderboard(
-                season=season,
-                leaderboard_type=leaderboard_type,
-                entries=entries
-            )
-            session.add(leaderboard)
-        
-        await session.commit()
-        
-        return {
-            "message": f"Leaderboard uploaded successfully",
-            "entries_count": len(entries),
-            "season": season,
-            "type": leaderboard_type
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to process file: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only CSV and JSON files supported")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    stmt = select(Leaderboard).where(
+        Leaderboard.season == season,
+        Leaderboard.leaderboard_type == leaderboard_type,
+    )
+    result = await session.execute(stmt)
+    leaderboard = result.scalar_one_or_none()
+
+    if leaderboard is None:
+        leaderboard = Leaderboard(season=season, leaderboard_type=leaderboard_type, entries=entries)
+        session.add(leaderboard)
+    else:
+        leaderboard.entries = entries
+
+    if title:
+        leaderboard.title = sanitize_text(title)
+
+    meta = dict(leaderboard.meta_data)
+    meta["imported_from"] = extension
+    leaderboard.meta_data = meta
+
+    await session.flush()
+    await _refresh_available_types(session, season)
+    await session.commit()
+
+    leaderboard_cache.invalidate_season(season)
+    return LeaderboardRead.model_validate(leaderboard)
 
 
-def parse_csv_leaderboard(content: str) -> List[Dict[str, Any]]:
-    """Parse CSV leaderboard data."""
+def _parse_csv(content: str) -> List[Dict[str, Any]]:
     reader = csv.DictReader(StringIO(content))
-    entries = []
-    
-    for i, row in enumerate(reader, 1):
-        if 'player' not in row or 'score' not in row:
-            raise ValueError("CSV must have 'player' and 'score' columns")
-        
+    entries: List[Dict[str, Any]] = []
+
+    for index, row in enumerate(reader, start=1):
+        if "player" not in row or "score" not in row:
+            raise ValueError("CSV must include 'player' and 'score' columns")
+
         try:
-            score = float(row['score'])
-        except ValueError:
-            raise ValueError(f"Invalid score on row {i}: {row['score']}")
-        
+            score = float(row["score"])
+        except ValueError as exc:
+            raise ValueError(f"Invalid score on row {index}: {row['score']}") from exc
+
         entry = {
-            'player': row['player'],
-            'score': score,
-            'position': i,
-            'metadata': {k: v for k, v in row.items() if k not in ['player', 'score']}
+            "player": str(row["player"]),
+            "score": score,
+            "position": index,
+            "metadata": {key: value for key, value in row.items() if key not in {"player", "score"}},
         }
         entries.append(entry)
-    
+
+    if not entries:
+        raise ValueError("Leaderboard file contained no rows")
     return entries
 
 
-def parse_json_leaderboard(content: str) -> List[Dict[str, Any]]:
-    """Parse JSON leaderboard data."""
+def _parse_json(content: str) -> List[Dict[str, Any]]:
     try:
-        data = json.loads(content)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON: {str(e)}")
-    
-    if not isinstance(data, list):
-        raise ValueError("JSON must be an array of entries")
-    
-    entries = []
-    for i, entry in enumerate(data, 1):
-        if not isinstance(entry, dict):
-            raise ValueError(f"Entry {i} must be an object")
-        
-        if 'player' not in entry or 'score' not in entry:
-            raise ValueError(f"Entry {i} must have 'player' and 'score' fields")
-        
+        payload = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON: {exc}") from exc
+
+    if not isinstance(payload, list):
+        raise ValueError("JSON payload must be an array of entries")
+
+    entries: List[Dict[str, Any]] = []
+    for index, raw_entry in enumerate(payload, start=1):
+        if not isinstance(raw_entry, dict):
+            raise ValueError(f"Entry {index} must be an object")
+
+        if "player" not in raw_entry or "score" not in raw_entry:
+            raise ValueError(f"Entry {index} must include 'player' and 'score'")
+
         try:
-            score = float(entry['score'])
-        except (ValueError, TypeError):
-            raise ValueError(f"Invalid score in entry {i}: {entry['score']}")
-        
-        processed_entry = {
-            'player': str(entry['player']),
-            'score': score,
-            'position': entry.get('position', i),
-            'metadata': entry.get('metadata', {})
+            score = float(raw_entry["score"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid score in entry {index}: {raw_entry['score']}") from exc
+
+        entry = {
+            "player": str(raw_entry["player"]),
+            "score": score,
+            "position": int(raw_entry.get("position") or index),
+            "metadata": raw_entry.get("metadata", {}),
         }
-        entries.append(processed_entry)
-    
+        entries.append(entry)
+
+    if not entries:
+        raise ValueError("Leaderboard file contained no entries")
     return entries
+
+
+async def _refresh_available_types(session: AsyncSession, season: str) -> None:
+    result = await session.execute(select(Leaderboard).where(Leaderboard.season == season))
+    leaderboards = result.scalars().all()
+    types = sorted({item.leaderboard_type for item in leaderboards})
+
+    for item in leaderboards:
+        meta = dict(item.meta_data)
+        meta["available_types"] = types
+        item.meta_data = meta

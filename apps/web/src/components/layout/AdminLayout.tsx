@@ -14,6 +14,7 @@ const adminNav = [
   { to: '/admin/audit', label: 'Audit Logs' },
   { to: '/admin/social', label: 'Social Links' },
   { to: '/admin/content', label: 'Homepage Content' },
+  { to: '/admin/media', label: 'Media Library' },
   { to: '/admin/diagnostics', label: 'Diagnostics' },
 ];
 

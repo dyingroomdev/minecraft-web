@@ -10,7 +10,7 @@
    - Rate limits per IP (3 requests/hour)
    - Creates `PaymentRequest` with status `pending`
 
-2. **Admin Review** (`GET /admin/payments?status=pending`)
+2. **Admin Review** (`GET /admin/payments?status=pending` or Admin ▸ Payments UI)
    - Admin reviews payment details and screenshot
    - Verifies bKash transaction manually
 
@@ -41,9 +41,11 @@ approved → failed (retry possible)
 curl -H "Authorization: Bearer $TOKEN" \
   "http://localhost:8000/admin/payments?status=failed"
 
-# 2. Retry fulfillment
+# 2. Retry fulfillment (API)
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   "http://localhost:8000/admin/retry/{payment_request_id}"
+
+# or via Admin ▸ Payments → Retry Fulfillment
 
 # 3. Manual RCON if needed
 docker compose exec worker python -c "
@@ -93,7 +95,7 @@ curl -X PATCH -H "Authorization: Bearer $TOKEN" \
   }' \
   "http://localhost:8000/admin/social"
 
-# Via Database
+# Via Database (rarely needed; prefer Admin ▸ Social Links UI)
 psql -h localhost -U postgres -d app -c "
 INSERT INTO social_links (id, platform, url, display_order, created_at, updated_at) 
 VALUES (gen_random_uuid(), 'DISCORD', 'https://discord.gg/newlink', 1, NOW(), NOW())
@@ -114,9 +116,9 @@ redis-cli -h localhost -p 6379 FLUSHALL
 
 ### Diagnostics
 ```bash
-# Check RCON connectivity
+# Check RCON connectivity (Admin ▸ Diagnostics → RCON card)
 curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/admin/diagnostics"
+  "http://localhost:8000/admin/diagnostics/"
 
 # Manual RCON test
 docker compose exec worker python -c "
@@ -291,3 +293,16 @@ WHERE processed_at IS NOT NULL
 2. **Restart API**: `docker compose restart api`
 3. **Revoke all sessions**: `redis-cli FLUSHALL`
 4. **Check audit logs**: Export via `/admin/audit/export`
+# Media Asset Management
+
+### Uploading Images
+```bash
+# Via Admin ▸ Media Library or direct API
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -F "file=@banner.jpg" \
+  "http://localhost:8000/admin/media/"
+```
+
+- Files are stored under `MEDIA_ROOT` (default `media/`) and published at `/api/media/<filename>`.
+- Use the returned URL in hero slides, news cover images, or other rich content blocks.
+- Filenames are sanitized and deduplicated automatically; expect a random suffix for cache-busting.

@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import Select, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,6 +41,7 @@ from app.schemas.content import (
     ServerFeatureRead,
 )
 from app.db.models.content import Event
+from app.services import leaderboard_cache
 
 router = APIRouter(prefix="/api")
 
@@ -60,9 +62,14 @@ async def get_server_status(session: AsyncSession = Depends(get_db_session)) -> 
 
 @router.get("/news", response_model=list[NewsSummary])
 async def list_news(session: AsyncSession = Depends(get_db_session)) -> list[NewsPost]:
+    now = datetime.now(timezone.utc)
     stmt = (
         select(NewsPost)
-        .where(NewsPost.is_draft.is_(False))
+        .where(
+            NewsPost.is_draft.is_(False),
+            (NewsPost.scheduled_publish_at.is_(None)) | (NewsPost.scheduled_publish_at <= now),
+            (NewsPost.published_at.is_(None)) | (NewsPost.published_at <= now),
+        )
         .order_by(desc(NewsPost.is_pinned), NewsPost.published_at.desc().nullslast())
     )
     result = await session.execute(stmt)
@@ -71,7 +78,13 @@ async def list_news(session: AsyncSession = Depends(get_db_session)) -> list[New
 
 @router.get("/news/{slug}", response_model=NewsDetail)
 async def get_news_detail(slug: str, session: AsyncSession = Depends(get_db_session)) -> NewsPost:
-    stmt = select(NewsPost).where(NewsPost.slug == slug, NewsPost.is_draft.is_(False))
+    now = datetime.now(timezone.utc)
+    stmt = select(NewsPost).where(
+        NewsPost.slug == slug,
+        NewsPost.is_draft.is_(False),
+        (NewsPost.scheduled_publish_at.is_(None)) | (NewsPost.scheduled_publish_at <= now),
+        (NewsPost.published_at.is_(None)) | (NewsPost.published_at <= now),
+    )
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
     if post is None:
@@ -107,12 +120,49 @@ async def list_active_events(session: AsyncSession = Depends(get_db_session)) ->
     return result.scalars().all()
 
 
+@router.get("/events", response_model=list[EventRead])
+async def list_events(session: AsyncSession = Depends(get_db_session)) -> list[Event]:
+    stmt = select(Event).order_by(Event.start_at.nullsfirst(), Event.created_at)
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+@router.get("/events/calendar.ics")
+async def download_events_calendar(session: AsyncSession = Depends(get_db_session)) -> Response:
+    stmt = select(Event).order_by(Event.start_at.nullsfirst(), Event.created_at)
+    result = await session.execute(stmt)
+    events = result.scalars().all()
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//AmzCraft//Events Calendar//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+    ]
+
+    for event in events:
+        lines.extend(_format_event_ics(event))
+
+    lines.append("END:VCALENDAR")
+    content = "\r\n".join(lines) + "\r\n"
+    return Response(
+        content=content,
+        media_type="text/calendar",
+        headers={"Content-Disposition": 'attachment; filename="amzcraft-events.ics"'},
+    )
+
+
 @router.get("/leaderboards/{season}/{leaderboard_type}", response_model=LeaderboardRead)
 async def get_leaderboard(
     season: str,
     leaderboard_type: str,
     session: AsyncSession = Depends(get_db_session),
 ) -> Leaderboard:
+    cached = leaderboard_cache.get(season, leaderboard_type)
+    if cached is not None:
+        return cached
+
     stmt = select(Leaderboard).where(
         Leaderboard.season == season,
         Leaderboard.leaderboard_type == leaderboard_type,
@@ -121,7 +171,9 @@ async def get_leaderboard(
     leaderboard = result.scalar_one_or_none()
     if leaderboard is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Leaderboard not found")
-    return leaderboard
+    payload = LeaderboardRead.model_validate(leaderboard)
+    leaderboard_cache.set(season, leaderboard_type, payload)
+    return payload
 
 
 async def _load_player(session: AsyncSession, identifier: str) -> Player | None:
@@ -224,3 +276,41 @@ async def list_server_features(session: AsyncSession = Depends(get_db_session)) 
     )
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+def _format_event_ics(event: Event) -> list[str]:
+    lines = ["BEGIN:VEVENT"]
+    now = datetime.now(timezone.utc)
+    lines.append(f"DTSTAMP:{_format_datetime(now)}")
+    lines.append(f"UID:{event.id}@amzcraft")
+    if event.start_at:
+        lines.append(f"DTSTART:{_format_datetime(event.start_at)}")
+    else:
+        lines.append(f"DTSTART:{_format_datetime(event.created_at)}")
+    if event.end_at:
+        lines.append(f"DTEND:{_format_datetime(event.end_at)}")
+    lines.append(f"SUMMARY:{_escape_ics(event.title)}")
+    if event.description:
+        lines.append(f"DESCRIPTION:{_escape_ics(event.description)}")
+    if event.location:
+        lines.append(f"LOCATION:{_escape_ics(event.location)}")
+    lines.append("END:VEVENT")
+    return lines
+
+
+def _format_datetime(value: datetime) -> str:
+    dt = value
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.strftime("%Y%m%dT%H%M%SZ")
+
+
+def _escape_ics(value: str) -> str:
+    return (
+        value.replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace(",", "\\,")
+        .replace(";", "\\;")
+    )

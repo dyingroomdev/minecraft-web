@@ -72,8 +72,14 @@ Monorepo containing the AMZCraft backend API, background worker, and React front
 ## Operations
 
 See [RUNBOOK.md](RUNBOOK.md) for detailed operational procedures including:
-- Purchase lifecycle and troubleshooting
-- Rollback procedures for failed payments
-- Social media link management
-- RCON failure handling and recovery
-- System monitoring and emergency procedures
+- Purchase lifecycle, admin approval, and automated fulfillment
+- Rollback and retry guidance for failed/approved payments (`POST /admin/retry/{payment_id}`)
+- Social media link management and cache refresh steps
+- RCON connectivity troubleshooting with diagnostics assists
+- System monitoring, Redis queue inspection, and emergency procedures
+
+Quick references:
+- Run platform diagnostics: `GET /admin/diagnostics/` (reports database, Redis, and RCON health)
+- Re-enqueue payment fulfillment: `POST /admin/retry/{payment_id}`
+- Export audit trail: `GET /admin/audit/export?limit=1000`
+- Upload media assets: `POST /admin/media/` (served at `/api/media/<filename>`)
