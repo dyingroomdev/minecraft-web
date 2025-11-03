@@ -30,7 +30,7 @@ class RankProduct(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     luckperms_group: Mapped[str] = mapped_column(String(64), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column("metadata", MutableDict.as_mutable(JSON_VARIANT), default=dict)
 
 
 class PaymentRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -51,7 +51,7 @@ class PaymentRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     processed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column("metadata", MutableDict.as_mutable(JSON_VARIANT), default=dict)
     
     rank_product: Mapped[RankProduct] = relationship("RankProduct")
     processed_by: Mapped["User | None"] = relationship("User")
@@ -71,6 +71,6 @@ class Entitlement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column("metadata", MutableDict.as_mutable(JSON_VARIANT), default=dict)
     
     payment_request: Mapped[PaymentRequest] = relationship("PaymentRequest")

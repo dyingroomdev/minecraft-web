@@ -133,6 +133,7 @@ class Event(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(140), unique=True, nullable=False)
     title: Mapped[str] = mapped_column(String(140), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    featured_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     location: Mapped[str | None] = mapped_column(String(140), nullable=True)

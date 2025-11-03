@@ -13,14 +13,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
-from app.core.enums import RBACRole
+from app.core.enums import AdminRole, RBACRole
 from app.core.security import (
     InvalidTokenError,
     TokenType,
     decode_jwt_token,
     token_has_expired,
 )
-from app.db.models import User
+from app.db.models import AdminUser, User
 from app.db.session import get_session
 
 
@@ -91,3 +91,50 @@ def require_roles(*roles: RBACRole | str):
 
 async def get_admin_user(current_user: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER))) -> User:
     return current_user
+
+
+async def get_current_admin_user(
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings_dependency),
+) -> AdminUser:
+    """Get current admin user from JWT token."""
+    try:
+        payload = decode_jwt_token(token=token, secret=settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    except InvalidTokenError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+
+    if payload.type is not TokenType.ACCESS:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+
+    if token_has_expired(payload):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+
+    try:
+        user_id = uuid.UUID(payload.sub)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject") from exc
+
+    result = await session.execute(select(AdminUser).where(AdminUser.id == user_id))
+    admin_user = result.scalar_one_or_none()
+    if not admin_user or not admin_user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin user not found")
+
+    return admin_user
+
+
+def require_admin(min_role: AdminRole = AdminRole.ADMIN):
+    """Require admin user with minimum role."""
+    async def wrapper(admin_user: AdminUser = Depends(get_current_admin_user)) -> AdminUser:
+        user_role = AdminRole(admin_user.role)
+        
+        # SUPER_ADMIN has access to everything
+        if user_role == AdminRole.SUPER_ADMIN:
+            return admin_user
+            
+        # Check if user has required role
+        if user_role != min_role:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
+            
+        return admin_user
+    return wrapper

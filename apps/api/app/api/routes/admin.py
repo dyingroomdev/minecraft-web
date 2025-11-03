@@ -10,8 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_admin_user, get_db_session, require_roles
-from app.core.enums import RBACRole
+from app.api.deps import get_admin_user, get_db_session, require_admin, require_roles
+from app.core.enums import AdminRole, RBACRole
+from app.db.models import AdminUser
 from app.db.models import (
     Event,
     HeroSlide,
@@ -89,12 +90,30 @@ async def _get_news_or_404(session: AsyncSession, news_id: uuid.UUID) -> NewsPos
     return news
 
 
+@router.get("/news", response_model=list[NewsDetail])
+async def list_news_admin(
+    session: AsyncSession = Depends(get_db_session),
+    _: AdminUser = Depends(require_admin()),
+) -> list[NewsPost]:
+    result = await session.execute(select(NewsPost).order_by(NewsPost.is_pinned.desc(), NewsPost.created_at.desc()))
+    return result.scalars().all()
+
+
 async def _get_event_or_404(session: AsyncSession, event_id: uuid.UUID) -> Event:
     result = await session.execute(select(Event).where(Event.id == event_id))
     event = result.scalar_one_or_none()
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
     return event
+
+
+@router.get("/events", response_model=list[EventRead])
+async def list_events_admin(
+    session: AsyncSession = Depends(get_db_session),
+    _: AdminUser = Depends(require_admin()),
+) -> list[Event]:
+    result = await session.execute(select(Event).order_by(Event.start_at.desc(), Event.created_at.desc()))
+    return result.scalars().all()
 
 
 async def _get_rule_or_404(session: AsyncSession, rule_id: uuid.UUID) -> Rule:
@@ -108,7 +127,7 @@ async def _get_rule_or_404(session: AsyncSession, rule_id: uuid.UUID) -> Rule:
 @router.get("/rules", response_model=list[RuleRead])
 async def list_rules_admin(
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin()),
 ) -> list[Rule]:
     result = await session.execute(
         select(Rule).order_by(Rule.is_pinned.desc(), Rule.display_order, Rule.created_at)
@@ -144,7 +163,7 @@ async def _get_server_feature_or_404(session: AsyncSession, feature_id: uuid.UUI
 async def create_news(
     payload: NewsCreate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(get_admin_user),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> NewsPost:
     data = payload.model_dump()
     requested_slug = data.get("slug")
@@ -183,7 +202,7 @@ async def update_news(
     news_id: uuid.UUID,
     payload: NewsUpdate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(get_admin_user),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> NewsPost:
     news = await _get_news_or_404(session, news_id)
     updates = payload.model_dump(exclude_unset=True)
@@ -217,7 +236,7 @@ async def update_news(
 async def delete_news(
     news_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(get_admin_user),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> None:
     news = await _get_news_or_404(session, news_id)
     await session.delete(news)
@@ -229,7 +248,7 @@ async def delete_news(
 async def create_event(
     payload: EventCreate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> Event:
     event = Event(**payload.model_dump())
     session.add(event)
@@ -243,7 +262,7 @@ async def update_event(
     event_id: uuid.UUID,
     payload: EventUpdate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> Event:
     event = await _get_event_or_404(session, event_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -257,7 +276,7 @@ async def update_event(
 async def delete_event(
     event_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> None:
     event = await _get_event_or_404(session, event_id)
     await session.delete(event)
@@ -269,7 +288,7 @@ async def delete_event(
 async def create_rule(
     payload: RuleCreate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> Rule:
     data = payload.model_dump()
     data["title"] = sanitize_text(data["title"])
@@ -289,7 +308,7 @@ async def update_rule(
     rule_id: uuid.UUID,
     payload: RuleUpdate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> Rule:
     rule = await _get_rule_or_404(session, rule_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -309,7 +328,7 @@ async def update_rule(
 async def delete_rule(
     rule_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> None:
     rule = await _get_rule_or_404(session, rule_id)
     await session.delete(rule)
@@ -321,7 +340,7 @@ async def delete_rule(
 async def reorder_rules(
     payload: RuleReorder,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> None:
     result = await session.execute(
         select(Rule).order_by(Rule.is_pinned.desc(), Rule.display_order, Rule.created_at)
@@ -350,7 +369,7 @@ async def reorder_rules(
 @router.get("/votes", response_model=list[VoteLinkRead])
 async def list_vote_links(
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin()),
 ) -> list[VoteLink]:
     result = await session.execute(select(VoteLink).order_by(VoteLink.display_order, VoteLink.created_at))
     return result.scalars().all()
@@ -360,7 +379,7 @@ async def list_vote_links(
 async def create_vote_link(
     payload: VoteLinkCreate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin()),
 ) -> VoteLink:
     vote_link = VoteLink(**payload.model_dump())
     session.add(vote_link)
@@ -374,7 +393,7 @@ async def update_vote_link(
     vote_id: uuid.UUID,
     payload: VoteLinkUpdate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin()),
 ) -> VoteLink:
     vote_link = await _get_vote_link_or_404(session, vote_id)
     updates = payload.model_dump(exclude_unset=True)
@@ -389,7 +408,7 @@ async def update_vote_link(
 async def delete_vote_link(
     vote_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin()),
 ) -> None:
     vote_link = await _get_vote_link_or_404(session, vote_id)
     await session.delete(vote_link)
@@ -406,7 +425,7 @@ async def _collect_social_links(session: AsyncSession) -> SocialLinksRead:
 @router.get("/social", response_model=SocialLinksRead)
 async def get_social_links_admin(
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin()),
 ) -> SocialLinksRead:
     return await _collect_social_links(session)
 
@@ -415,7 +434,7 @@ async def get_social_links_admin(
 async def update_social_links(
     payload: SocialLinksUpdate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> SocialLinksRead:
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
@@ -437,7 +456,7 @@ async def update_social_links(
 @router.get("/hero-slides", response_model=list[HeroSlideRead])
 async def list_hero_slides_admin(
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin()),
 ) -> list[HeroSlide]:
     result = await session.execute(select(HeroSlide).order_by(HeroSlide.display_order, HeroSlide.created_at))
     return result.scalars().all()
@@ -447,7 +466,7 @@ async def list_hero_slides_admin(
 async def create_hero_slide(
     payload: HeroSlideCreate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> HeroSlide:
     data = payload.model_dump()
     data["title"] = sanitize_text(data.get("title"))
@@ -465,7 +484,7 @@ async def update_hero_slide(
     slide_id: uuid.UUID,
     payload: HeroSlideUpdate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> HeroSlide:
     slide = await _get_hero_slide_or_404(session, slide_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -481,7 +500,7 @@ async def update_hero_slide(
 async def delete_hero_slide(
     slide_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> None:
     slide = await _get_hero_slide_or_404(session, slide_id)
     await session.delete(slide)
@@ -492,7 +511,7 @@ async def delete_hero_slide(
 @router.get("/features", response_model=list[ServerFeatureRead])
 async def list_server_features_admin(
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER, RBACRole.MOD)),
+    _: AdminUser = Depends(require_admin()),
 ) -> list[ServerFeature]:
     result = await session.execute(select(ServerFeature).order_by(ServerFeature.display_order, ServerFeature.created_at))
     return result.scalars().all()
@@ -502,7 +521,7 @@ async def list_server_features_admin(
 async def create_server_feature(
     payload: ServerFeatureCreate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> ServerFeature:
     data = payload.model_dump()
     data["description"] = sanitize_markdown(data["description"])
@@ -520,7 +539,7 @@ async def update_server_feature(
     feature_id: uuid.UUID,
     payload: ServerFeatureUpdate,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> ServerFeature:
     feature = await _get_server_feature_or_404(session, feature_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -538,7 +557,7 @@ async def update_server_feature(
 async def delete_server_feature(
     feature_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(require_roles(RBACRole.ADMIN, RBACRole.OWNER)),
+    _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> None:
     feature = await _get_server_feature_or_404(session, feature_id)
     await session.delete(feature)

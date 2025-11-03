@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, JSON, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -69,7 +69,23 @@ class AuditLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     user_id: Mapped[Any] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     action: Mapped[str] = mapped_column(String(128))
-    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column("metadata", MutableDict.as_mutable(JSON_VARIANT), default=dict)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actor_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     user: Mapped["User | None"] = relationship("User", back_populates="audits")
+
+
+class AdminUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Admin users for the admin panel with email/password authentication."""
+
+    __tablename__ = "admin_users"
+
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(128))
+    role: Mapped[str] = mapped_column(String(20), default="ADMIN")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('ADMIN', 'SUPER_ADMIN')", name="ck_admin_users_role"),
+    )

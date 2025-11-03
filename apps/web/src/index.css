@@ -14,4 +14,22 @@
     font-family: theme('fontFamily.display');
     @apply tracking-tight;
   }
+
+  /* Minecraft-style scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: theme('colors.surface');
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.brand');
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.brand2');
+  }
 }

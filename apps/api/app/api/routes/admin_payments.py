@@ -11,9 +11,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_admin_user, get_db_session, get_settings_dependency
+from app.api.deps import get_db_session, get_settings_dependency, require_admin
 from app.core.config import Settings
-from app.db.models import AuditLog, PaymentRequest, User
+from app.core.enums import AdminRole
+from app.db.models import AdminUser, AuditLog, PaymentRequest
 from app.schemas.payment import PaymentApprovalRequest, PaymentRejectionRequest, PaymentRequestRead
 from app.services.payment import PaymentService
 
@@ -32,7 +33,7 @@ async def get_redis(settings: Settings = Depends(get_settings_dependency)):
 async def list_payments(
     status_filter: str = "pending",
     session: AsyncSession = Depends(get_db_session),
-    _: User = Depends(get_admin_user),
+    _: AdminUser = Depends(require_admin()),
 ) -> list[PaymentRequest]:
     stmt = (
         select(PaymentRequest)
@@ -51,7 +52,7 @@ async def approve_payment(
     idempotency_key: str = Header(..., alias="Idempotency-Key"),
     session: AsyncSession = Depends(get_db_session),
     redis: aioredis.Redis = Depends(get_redis),
-    admin_user: User = Depends(get_admin_user),
+    admin_user: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> PaymentRequest:
     if not idempotency_key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Idempotency-Key header required")
@@ -60,14 +61,14 @@ async def approve_payment(
     payment = await payment_service.approve_payment(payment_id, admin_user.id, idempotency_key)
 
     audit = AuditLog(
-        user_id=admin_user.id,
+        admin_user_id=admin_user.id,
         action="payment_approved",
         meta_data={
             "payment_request_id": str(payment_id),
             "mc_username": payment.mc_username,
             "rank_code": payment.rank_product.rank_code if payment.rank_product else None,
         },
-        notes=f"Payment approved by {admin_user.username}",
+        notes=f"Payment approved by {admin_user.email}",
     )
     session.add(audit)
     await session.commit()
@@ -81,13 +82,13 @@ async def reject_payment(
     rejection_data: PaymentRejectionRequest,
     session: AsyncSession = Depends(get_db_session),
     redis: aioredis.Redis = Depends(get_redis),
-    admin_user: User = Depends(get_admin_user),
+    admin_user: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> PaymentRequest:
     payment_service = PaymentService(session, redis)
     payment = await payment_service.reject_payment(payment_id, admin_user.id, rejection_data.reason)
 
     audit = AuditLog(
-        user_id=admin_user.id,
+        admin_user_id=admin_user.id,
         action="payment_rejected",
         meta_data={
             "payment_request_id": str(payment_id),
@@ -95,7 +96,7 @@ async def reject_payment(
             "rank_code": payment.rank_product.rank_code if payment.rank_product else None,
             "reason": rejection_data.reason,
         },
-        notes=f"Payment rejected by {admin_user.username}",
+        notes=f"Payment rejected by {admin_user.email}",
     )
     session.add(audit)
     await session.commit()
@@ -107,7 +108,7 @@ async def reject_payment(
 async def retry_payment_fulfillment(
     payment_request_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
-    admin_user: User = Depends(get_admin_user),
+    admin_user: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
     redis: aioredis.Redis = Depends(get_redis),
 ) -> dict:
     """Re-enqueue payment fulfillment for retry."""
@@ -135,7 +136,7 @@ async def retry_payment_fulfillment(
         
         # Create audit log
         audit = AuditLog(
-            user_id=admin_user.id,
+            admin_user_id=admin_user.id,
             action="payment_retry",
             meta_data={
                 "payment_request_id": str(payment_request_id),
@@ -143,7 +144,7 @@ async def retry_payment_fulfillment(
                 "mc_username": payment.mc_username,
                 "rank_code": payment.rank_product.rank_code if payment.rank_product else None
             },
-            notes=f"Payment fulfillment re-enqueued by {admin_user.username}"
+            notes=f"Payment fulfillment re-enqueued by {admin_user.email}"
         )
         session.add(audit)
         await session.commit()
@@ -162,13 +163,13 @@ async def retry_payment_fulfillment(
 async def export_audit_logs(
     limit: int = 1000,
     session: AsyncSession = Depends(get_db_session),
-    admin_user: User = Depends(get_admin_user),
+    admin_user: AdminUser = Depends(require_admin()),
 ) -> Response:
     """Export audit logs as CSV."""
     
     stmt = (
         select(AuditLog)
-        .options(selectinload(AuditLog.user))
+        .options(selectinload(AuditLog.admin_user))
         .order_by(AuditLog.created_at.desc())
         .limit(limit)
     )
@@ -182,8 +183,8 @@ async def export_audit_logs(
     # Headers
     writer.writerow([
         "timestamp",
-        "user_id", 
-        "username",
+        "admin_user_id", 
+        "admin_email",
         "action",
         "metadata",
         "notes"
@@ -193,8 +194,8 @@ async def export_audit_logs(
     for log in audit_logs:
         writer.writerow([
             log.created_at.isoformat(),
-            str(log.user_id) if log.user_id else "",
-            log.user.username if log.user else "",
+            str(log.admin_user_id) if log.admin_user_id else "",
+            log.admin_user.email if log.admin_user else "",
             log.action,
             str(log.meta_data) if log.meta_data else "",
             log.notes or ""
@@ -205,10 +206,10 @@ async def export_audit_logs(
     
     # Create audit log for export
     export_audit = AuditLog(
-        user_id=admin_user.id,
+        admin_user_id=admin_user.id,
         action="audit_export",
         meta_data={"exported_count": len(audit_logs), "limit": limit},
-        notes=f"Audit logs exported by {admin_user.username}"
+        notes=f"Audit logs exported by {admin_user.email}"
     )
     session.add(export_audit)
     await session.commit()

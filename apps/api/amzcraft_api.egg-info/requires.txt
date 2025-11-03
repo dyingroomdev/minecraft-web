@@ -17,6 +17,8 @@ backoff>=2.2.1
 bleach>=6.0.0
 python-magic>=0.4.27
 python-multipart>=0.0.6
+bcrypt>=4.0.0
+click>=8.0.0
 
 [dev]
 pytest>=8.2.0

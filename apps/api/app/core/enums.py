@@ -14,4 +14,11 @@ class RBACRole(str, Enum):
     PLAYER = "PLAYER"
 
 
+class AdminRole(str, Enum):
+    """Admin user roles for the admin panel."""
+
+    ADMIN = "ADMIN"
+    SUPER_ADMIN = "SUPER_ADMIN"
+
+
 RBAC_DEFAULT_ROLE = RBACRole.PLAYER

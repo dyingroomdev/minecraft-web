@@ -100,6 +100,7 @@ class EventRead(BaseModel):
     slug: str
     title: str
     description: str
+    featured_image_url: str | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
     location: str | None = None
@@ -113,6 +114,7 @@ class EventCreate(BaseModel):
     slug: str
     title: str
     description: str
+    featured_image_url: str | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
     location: str | None = None
@@ -122,6 +124,7 @@ class EventCreate(BaseModel):
 class EventUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
+    featured_image_url: str | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
     location: str | None = None
