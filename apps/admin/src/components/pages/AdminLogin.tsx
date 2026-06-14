@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8001').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');

@@ -3,9 +3,7 @@ import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 
 import { useHero } from '@/lib/hooks';
 
-const API_BASE =
-  (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '') ||
-  'http://localhost:8001';
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 const HERO_EMOJI = `${API_BASE}/api/media/emojis/4935-redstone.png`;
 const CTA_EMOJI = `${API_BASE}/api/media/emojis/31562-minecraft-bee.gif`;

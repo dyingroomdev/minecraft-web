@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import AdminTable from '@/components/admin/AdminTable';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 interface NewsPost {
   id: string;
   title: string;
@@ -22,7 +24,7 @@ export default function AdminNews() {
   const fetchNews = async () => {
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:8001/admin/news', {
+      const response = await fetch(`${API_BASE}/admin/news`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -52,7 +54,7 @@ export default function AdminNews() {
     
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/news/${item.id}`, {
+      const response = await fetch(`${API_BASE}/admin/news/${item.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

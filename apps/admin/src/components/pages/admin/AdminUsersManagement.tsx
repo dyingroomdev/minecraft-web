@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import AdminTable from '@/components/admin/AdminTable';
 import RoleGate from '@/components/RoleGate';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 interface AdminUser {
   id: string;
   email: string;
@@ -20,7 +22,7 @@ export default function AdminUsersManagement() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:8001/admin/users/', {
+      const response = await fetch(`${API_BASE}/admin/users/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -50,7 +52,7 @@ export default function AdminUsersManagement() {
     
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/users/${item.id}`, {
+      const response = await fetch(`${API_BASE}/admin/users/${item.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

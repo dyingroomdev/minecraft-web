@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 export interface LeaderboardEntry {
   player: string;
   score: number;
@@ -34,7 +36,7 @@ export const useUploadLeaderboard = () => {
       formData.append('leaderboard_type', type);
       if (title) formData.append('title', title);
       
-      const response = await fetch('http://localhost:8001/admin/leaderboards/upload', {
+      const response = await fetch(`${API_BASE}/admin/leaderboards/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

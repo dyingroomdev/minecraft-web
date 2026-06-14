@@ -7,9 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-const API_BASE =
-  (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '') ||
-  'http://localhost:8001';
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const COMMUNITY_GIF = `${API_BASE}/api/media/emojis/31562-minecraft-bee.gif`;
 
 type RuleGroup = {

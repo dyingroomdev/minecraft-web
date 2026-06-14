@@ -10,6 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 interface Product {
   id: string;
   name: string;
@@ -43,7 +45,7 @@ export default function EditProduct() {
   const fetchProduct = async () => {
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/shop/products/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/shop/products/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch product');
@@ -78,7 +80,7 @@ export default function EditProduct() {
         const imageFormData = new FormData();
         imageFormData.append('file', formData.image);
         const token = localStorage.getItem('admin_token');
-        const imageResponse = await fetch('http://localhost:8001/admin/media/', {
+        const imageResponse = await fetch(`${API_BASE}/admin/media/`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: imageFormData,
@@ -90,7 +92,7 @@ export default function EditProduct() {
       }
 
       // Update product
-      const response = await fetch(`http://localhost:8001/admin/shop/products/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/shop/products/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` },
         body: JSON.stringify({

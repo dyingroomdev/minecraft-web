@@ -8,7 +8,7 @@ interface MediaUploadResponse {
   size: number;
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8001').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 const uploadMedia = async (file: File): Promise<MediaUploadResponse> => {
   const formData = new FormData();

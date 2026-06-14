@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 export interface ServerFeature {
   id: string;
   title: string;
@@ -15,7 +17,7 @@ export const useFeatures = () => {
     queryKey: ['features-admin'],
     queryFn: async (): Promise<ServerFeature[]> => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:8001/admin/features', {
+      const response = await fetch(`${API_BASE}/admin/features`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -32,7 +34,7 @@ export const useCreateFeature = () => {
   return useMutation({
     mutationFn: async (data: Omit<ServerFeature, 'id'>) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:8001/admin/features', {
+      const response = await fetch(`${API_BASE}/admin/features`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -59,7 +61,7 @@ export const useUpdateFeature = () => {
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<ServerFeature> & { id: string }) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/features/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/features/${id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -86,7 +88,7 @@ export const useDeleteFeature = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/features/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/features/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

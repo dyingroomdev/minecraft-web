@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 export interface RankProduct {
   id: string;
   rank_code: string;
@@ -30,7 +32,7 @@ export const usePayments = (status: string = 'pending') => {
     queryKey: ['admin-payments', status],
     queryFn: async (): Promise<Payment[]> => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/payments?status_filter=${status}`, {
+      const response = await fetch(`${API_BASE}/admin/payments?status_filter=${status}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -47,7 +49,7 @@ export const useApprovePayment = () => {
   return useMutation({
     mutationFn: async (paymentId: string) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/payments/${paymentId}/approve`, {
+      const response = await fetch(`${API_BASE}/admin/payments/${paymentId}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -75,7 +77,7 @@ export const useRejectPayment = () => {
   return useMutation({
     mutationFn: async ({ paymentId, reason }: { paymentId: string; reason: string }) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/payments/${paymentId}/reject`, {
+      const response = await fetch(`${API_BASE}/admin/payments/${paymentId}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -102,7 +104,7 @@ export const useRetryPayment = () => {
   return useMutation({
     mutationFn: async (paymentId: string) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/retry/${paymentId}`, {
+      const response = await fetch(`${API_BASE}/admin/retry/${paymentId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

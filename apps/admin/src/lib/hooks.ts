@@ -12,9 +12,7 @@ import {
 } from './types';
 
 const ABSOLUTE_URL_PATTERN = /^https?:\/\//i;
-const API_BASE =
-  (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '') ||
-  'http://localhost:8001';
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const WS_BASE = import.meta.env.VITE_WS_URL ?? null;
 
 const buildUrl = (path: string) => {

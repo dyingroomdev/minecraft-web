@@ -11,9 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { NewsPost } from '@/lib/types';
 
-const API_BASE =
-  (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '') ||
-  'http://localhost:8001';
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const NEWS_BEE = `${API_BASE}/api/media/emojis/31562-minecraft-bee.gif`;
 
 type MonthGroup = {

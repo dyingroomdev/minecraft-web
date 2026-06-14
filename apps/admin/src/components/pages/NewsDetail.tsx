@@ -9,9 +9,7 @@ import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-const API_BASE =
-  (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '') ||
-  'http://localhost:8001';
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 function resolveMediaUrl(url?: string | null) {
   if (!url) return null;

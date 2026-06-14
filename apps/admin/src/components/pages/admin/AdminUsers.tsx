@@ -8,6 +8,8 @@ import HealthList from '@/components/admin/HealthList';
 import MinecraftLive from '@/components/admin/MinecraftLive';
 import { useAdmin } from '@/contexts/AdminContext';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 interface DiagnosticsData {
   service: {
     status: string;
@@ -51,7 +53,7 @@ export default function AdminDiagnostics() {
   const fetchDiagnostics = useCallback(async (noCache = false) => {
     try {
       const token = localStorage.getItem('admin_token');
-      const url = `http://localhost:8001/admin/diagnostics/${noCache ? '?no_cache=1' : ''}`;
+      const url = `${API_BASE}/admin/diagnostics/${noCache ? '?no_cache=1' : ''}`;
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -84,7 +86,7 @@ export default function AdminDiagnostics() {
     
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/diagnostics/${endpoint}`, {
+      const response = await fetch(`${API_BASE}/admin/diagnostics/${endpoint}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

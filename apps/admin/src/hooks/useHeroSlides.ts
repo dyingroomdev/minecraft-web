@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 export interface HeroSlide {
   id: string;
   title: string;
@@ -17,7 +19,7 @@ export const useHeroSlides = () => {
     queryKey: ['hero-slides-admin'],
     queryFn: async (): Promise<HeroSlide[]> => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:8001/admin/hero-slides', {
+      const response = await fetch(`${API_BASE}/admin/hero-slides`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -34,7 +36,7 @@ export const useCreateHeroSlide = () => {
   return useMutation({
     mutationFn: async (data: Omit<HeroSlide, 'id'>) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:8001/admin/hero-slides', {
+      const response = await fetch(`${API_BASE}/admin/hero-slides`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -61,7 +63,7 @@ export const useUpdateHeroSlide = () => {
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<HeroSlide> & { id: string }) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/hero-slides/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/hero-slides/${id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -88,7 +90,7 @@ export const useDeleteHeroSlide = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/hero-slides/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/hero-slides/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

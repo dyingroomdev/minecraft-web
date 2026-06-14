@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -14,7 +16,7 @@ export const useAdminUsers = () => {
     queryKey: ['admin-users'],
     queryFn: async (): Promise<AdminUser[]> => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:8001/admin/users/', {
+      const response = await fetch(`${API_BASE}/admin/users/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -31,7 +33,7 @@ export const useCreateAdminUser = () => {
   return useMutation({
     mutationFn: async (data: { email: string; password: string; role: string }) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:8001/admin/users/', {
+      const response = await fetch(`${API_BASE}/admin/users/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -58,7 +60,7 @@ export const useUpdateAdminUser = () => {
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<AdminUser> & { id: string }) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/users/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/users/${id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -85,7 +87,7 @@ export const useDeleteAdminUser = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`http://localhost:8001/admin/users/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/users/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

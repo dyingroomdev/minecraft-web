@@ -2,9 +2,7 @@ import { Fragment } from 'react';
 
 import { useFeatures } from '@/lib/hooks';
 
-const API_BASE =
-  (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '') ||
-  'http://localhost:8001';
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 const EMOJI_FILES = [
   '433076-minecraft-diamond-sparkle.gif',

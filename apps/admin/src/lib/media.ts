@@ -1,4 +1,4 @@
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8001').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 export function resolveMediaUrl(value?: string | null) {
   const trimmed = value?.trim();

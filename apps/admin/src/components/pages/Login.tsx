@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8001').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 export default function Login() {
   useEffect(() => {
