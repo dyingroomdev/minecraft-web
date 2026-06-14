@@ -116,7 +116,7 @@ class NewsPost(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     slug: Mapped[str] = mapped_column(String(140), unique=True, nullable=False)
     title: Mapped[str] = mapped_column(String(140), nullable=False)
-    summary: Mapped[str | None] = mapped_column(String(280), nullable=True)
+    summary: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     scheduled_publish_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
