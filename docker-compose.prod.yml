@@ -3,41 +3,17 @@ version: "3.9"
 networks:
   proxy:
     external: true
-  internal:
-    driver: bridge
 
 services:
-  db:
-    image: postgres:15-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: amzcraft
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - internal
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    networks:
-      - internal
-
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
-    depends_on:
-      - db
-      - redis
     env_file:
       - .env
     networks:
       - proxy
-      - internal
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
@@ -52,13 +28,10 @@ services:
       context: .
       dockerfile: apps/worker/Dockerfile
     restart: unless-stopped
-    depends_on:
-      - db
-      - redis
     env_file:
       - .env
     networks:
-      - internal
+      - proxy
 
   frontend:
     build:
@@ -102,6 +75,3 @@ services:
       - "traefik.http.routers.amzcraft-admin.tls=true"
       - "traefik.http.routers.amzcraft-admin.tls.certresolver=letsencrypt"
       - "traefik.http.services.amzcraft-admin.loadbalancer.server.port=80"
-
-volumes:
-  db_data:
