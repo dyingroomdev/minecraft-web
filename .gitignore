@@ -6,7 +6,9 @@ __pycache__/
 .env
 .env.*
 !apps/frontend/.env.example
+!apps/frontend/.env.production
 !apps/admin/.env.example
+!apps/admin/.env.production
 .mypy_cache/
 .pytest_cache/
 ruff_cache/
