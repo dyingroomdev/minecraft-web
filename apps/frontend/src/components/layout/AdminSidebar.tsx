@@ -1,16 +1,16 @@
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  CreditCard, 
-  Newspaper, 
-  Calendar, 
-  Scroll, 
-  Vote, 
-  Sparkles, 
-  Image, 
-  Trophy, 
-  Share2, 
-  Activity, 
+import {
+  LayoutDashboard,
+  CreditCard,
+  Newspaper,
+  Calendar,
+  Scroll,
+  Vote,
+  Sparkles,
+  Image,
+  Trophy,
+  Share2,
+  Activity,
   Shield,
   LogOut,
   Palette,
@@ -18,7 +18,8 @@ import {
   ShoppingCart,
   Package,
   ShoppingBag,
-  BarChart3
+  BarChart3,
+  X,
 } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 
@@ -69,15 +70,38 @@ const NAV_SECTIONS = [
   },
 ];
 
-export default function AdminSidebar() {
+interface AdminSidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarProps) {
   const { user, isSuper, logout } = useAdmin();
 
   return (
-    <div className="w-64 bg-surface border-r border-gray-600 h-screen flex flex-col">
+    <div
+      className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-gray-600 h-screen flex flex-col
+        transform transition-transform duration-200 ease-in-out
+        md:static md:translate-x-0 md:z-auto
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}
+    >
       {/* Header */}
-      <div className="p-6 border-b border-gray-600">
-        <h1 className="text-xl font-bold text-brand">AmzCraft Control</h1>
-        <p className="text-sm text-gray-300">{user?.email}</p>
+      <div className="p-5 border-b border-gray-600">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-brand">AmzCraft Control</h1>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="md:hidden rounded-lg p-1 text-gray-400 hover:bg-surface2 hover:text-gray-200 transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+        <p className="text-sm text-gray-300 mt-0.5">{user?.email}</p>
         <span className="inline-block px-2 py-1 text-xs bg-brand/20 text-brand rounded mt-1">
           {user?.role}
         </span>
@@ -99,6 +123,7 @@ export default function AdminSidebar() {
                     <li key={item.name}>
                       <NavLink
                         to={item.path}
+                        onClick={onClose}
                         className={({ isActive }) =>
                           `flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                             isActive

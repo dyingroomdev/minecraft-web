@@ -304,6 +304,29 @@ export default function ReferenceSite() {
     window.addEventListener('popstate', handlePopState);
     cleanup.push(() => window.removeEventListener('popstate', handlePopState));
 
+    // Mobile hamburger menu
+    const hamburger = root.querySelector<HTMLButtonElement>('#nav-hamburger');
+    const navLinks = root.querySelector<HTMLUListElement>('.nav-links');
+    if (hamburger && navLinks) {
+      const closeNav = () => {
+        navLinks.classList.remove('open');
+        hamburger.textContent = '☰';
+        hamburger.setAttribute('aria-expanded', 'false');
+      };
+      const handleHamburger = () => {
+        const isOpen = navLinks.classList.toggle('open');
+        hamburger.textContent = isOpen ? '✕' : '☰';
+        hamburger.setAttribute('aria-expanded', String(isOpen));
+      };
+      hamburger.addEventListener('click', handleHamburger);
+      cleanup.push(() => hamburger.removeEventListener('click', handleHamburger));
+
+      navLinks.querySelectorAll('a').forEach((link) => {
+        link.addEventListener('click', closeNav);
+        cleanup.push(() => link.removeEventListener('click', closeNav));
+      });
+    }
+
     root.querySelectorAll<HTMLButtonElement>('.btn-login').forEach((button) => {
       const authenticated = Boolean(localStorage.getItem('access_token'));
       if (authenticated) button.textContent = 'Dashboard';
