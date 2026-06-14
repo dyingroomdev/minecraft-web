@@ -1,4 +1,4 @@
-"""Authentication orchestration for Discord OAuth workflows."""
+"""Authentication orchestration for credentials and OAuth workflows."""
 
 from __future__ import annotations
 
@@ -11,17 +11,21 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.enums import RBAC_DEFAULT_ROLE
 from app.core.security import (
     InvalidTokenError,
     JWTTokenPayload,
     TokenType,
     create_jwt_token,
     decode_jwt_token,
+    hash_password,
     hash_token_value,
     token_has_expired,
+    verify_password,
 )
 from app.db.models import AuditLog, RefreshToken, User
 from app.services.discord import DiscordUser
+from app.services.google import GoogleUser
 
 
 @dataclass
@@ -43,7 +47,46 @@ class AuthService:
         self.session = session
         self.settings = settings
 
-    async def upsert_user(
+    @staticmethod
+    def normalize_email(email: str) -> str:
+        return email.strip().lower()
+
+    async def register_user(self, *, email: str, username: str, password: str) -> User:
+        normalized_email = self.normalize_email(email)
+        existing = await self.session.execute(
+            select(User).where(
+                (User.email == normalized_email) | (User.username == username.strip())
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email or username is already registered",
+            )
+
+        user = User(
+            email=normalized_email,
+            username=username.strip(),
+            password_hash=hash_password(password),
+            roles=[RBAC_DEFAULT_ROLE.value],
+        )
+        self.session.add(user)
+        await self.session.flush()
+        return user
+
+    async def authenticate_credentials(self, *, email: str, password: str) -> User:
+        result = await self.session.execute(
+            select(User).where(User.email == self.normalize_email(email))
+        )
+        user = result.scalar_one_or_none()
+        if user is None or user.password_hash is None or not verify_password(password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+        return user
+
+    async def upsert_discord_user(
         self,
         *,
         discord_user: DiscordUser,
@@ -53,23 +96,74 @@ class AuthService:
             select(User).where(User.discord_id == str(discord_user.id))
         )
         user = result.scalar_one_or_none()
+        normalized_email = (
+            self.normalize_email(discord_user.email) if discord_user.email else None
+        )
+        if normalized_email and not discord_user.verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Discord email address is not verified",
+            )
+        if user is None and normalized_email:
+            result = await self.session.execute(select(User).where(User.email == normalized_email))
+            user = result.scalar_one_or_none()
 
         payload = {
             "username": discord_user.display_username,
-            "email": discord_user.email,
+            "email": normalized_email,
             "avatar": discord_user.avatar,
             "roles": roles,
         }
 
         if user is None:
+            if normalized_email is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Discord did not provide an email address",
+                )
             user = User(
                 discord_id=str(discord_user.id),
                 **payload,
             )
             self.session.add(user)
         else:
+            user.discord_id = str(discord_user.id)
             for key, value in payload.items():
-                setattr(user, key, value)
+                if value is not None:
+                    setattr(user, key, value)
+
+        return user
+
+    async def upsert_google_user(self, *, google_user: GoogleUser) -> User:
+        if not google_user.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google email address is not verified",
+            )
+
+        normalized_email = self.normalize_email(google_user.email)
+        result = await self.session.execute(
+            select(User).where(User.google_id == google_user.sub)
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            result = await self.session.execute(select(User).where(User.email == normalized_email))
+            user = result.scalar_one_or_none()
+
+        if user is None:
+            user = User(
+                google_id=google_user.sub,
+                email=normalized_email,
+                username=(google_user.name or normalized_email.split("@", 1)[0])[:32],
+                avatar=google_user.picture,
+                roles=[RBAC_DEFAULT_ROLE.value],
+            )
+            self.session.add(user)
+        else:
+            user.google_id = google_user.sub
+            user.email = normalized_email
+            if google_user.picture:
+                user.avatar = google_user.picture
 
         return user
 
@@ -84,7 +178,7 @@ class AuthService:
         audit = AuditLog(
             user=user,
             action=action,
-            metadata=metadata or {},
+            meta_data=metadata or {},
             notes=notes,
         )
         self.session.add(audit)

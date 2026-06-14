@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import BaseModel, Field, computed_field, field_validator
 from pydantic_settings import BaseSettings
 
-from app.core.enums import RBACRole, RBAC_DEFAULT_ROLE
+from app.core.enums import RBAC_DEFAULT_ROLE, RBACRole
 
 
 class DiscordOAuthConfig(BaseModel):
@@ -46,6 +46,17 @@ class DiscordOAuthConfig(BaseModel):
         return f"{self.api_base}{endpoint}"
 
 
+class GoogleOAuthConfig(BaseModel):
+    """Prepared configuration for Google OpenID Connect."""
+
+    client_id: str
+    client_secret: str
+    redirect_uri: str
+    authorize_url: str = "https://accounts.google.com/o/oauth2/v2/auth"
+    token_url: str = "https://oauth2.googleapis.com/token"
+    user_url: str = "https://openidconnect.googleapis.com/v1/userinfo"
+
+
 class Settings(BaseSettings):
     """Core settings for the FastAPI application."""
 
@@ -66,15 +77,30 @@ class Settings(BaseSettings):
     discord_client_id: str = Field(..., alias="DISCORD_CLIENT_ID")
     discord_client_secret: str = Field(..., alias="DISCORD_CLIENT_SECRET")
     discord_redirect_uri: str = Field(..., alias="DISCORD_REDIRECT_URI")
+    admin_discord_redirect_uri: str = Field(
+        default="http://localhost:5174/admin/auth/discord/callback",
+        alias="ADMIN_DISCORD_REDIRECT_URI",
+    )
     discord_guild_id: str = Field(..., alias="DISCORD_GUILD_ID")
+    discord_invite_url: str = Field(default="", alias="DISCORD_INVITE_URL")
     discord_api_base: str = Field(default="https://discord.com/api", alias="DISCORD_API_BASE")
+    admin_discord_state_cookie_name: str = Field(default="admin_discord_oauth_state")
+    google_state_cookie_name: str = Field(default="google_oauth_state")
+    google_client_id: str = Field(default="", alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str = Field(default="", alias="GOOGLE_CLIENT_SECRET")
+    google_redirect_uri: str = Field(
+        default="http://localhost:5173/auth/google/callback",
+        alias="GOOGLE_REDIRECT_URI",
+    )
     minecraft_server_host: str = Field(default="localhost", alias="MINECRAFT_SERVER_HOST")
     minecraft_server_port: int = Field(default=25565, alias="MINECRAFT_SERVER_PORT")
+    minecraft_server_host_bedrock: str = Field(default="play.amzcraft.top", alias="MINECRAFT_SERVER_HOST_BEDROCK")
+    minecraft_server_port_bedrock: int = Field(default=25566, alias="MINECRAFT_SERVER_PORT_BEDROCK")
     minecraft_rcon_host: str = Field(default="localhost", alias="MINECRAFT_RCON_HOST")
     minecraft_rcon_port: int = Field(default=25575, alias="MINECRAFT_RCON_PORT")
     minecraft_rcon_password: str = Field(default="", alias="MINECRAFT_RCON_PASSWORD")
-    mc_java_host: str = Field(default="play.amzcraft.xyz", alias="MC_JAVA_HOST")
-    mc_bedrock_host: str = Field(default="bedrock.amzcraft.xyz", alias="MC_BEDROCK_HOST")
+    mc_java_host: str = Field(default="play.amzcraft.top", alias="MC_JAVA_HOST")
+    mc_bedrock_host: str = Field(default="play.amzcraft.top:25566", alias="MC_BEDROCK_HOST")
     mcsrv_base: str = Field(default="https://api.mcsrvstat.us", alias="MCSRV_BASE")
     status_ttl_seconds: int = Field(default=12, alias="STATUS_TTL_SECONDS")
     cors_allowed_origins: list[str] = Field(
@@ -95,6 +121,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
     @field_validator("jwt_refresh_cookie_domain", mode="before")
     @classmethod
@@ -113,7 +140,31 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[misc]
     @property
     def discord(self) -> DiscordOAuthConfig:
-        return DiscordOAuthConfig(**self.model_dump(by_alias=True))
+        return DiscordOAuthConfig(
+            DISCORD_CLIENT_ID=self.discord_client_id,
+            DISCORD_CLIENT_SECRET=self.discord_client_secret,
+            DISCORD_REDIRECT_URI=self.discord_redirect_uri,
+            DISCORD_GUILD_ID=self.discord_guild_id,
+            DISCORD_API_BASE=self.discord_api_base,
+        )
+
+    def discord_for_redirect(self, redirect_uri: str) -> DiscordOAuthConfig:
+        return DiscordOAuthConfig(
+            DISCORD_CLIENT_ID=self.discord_client_id,
+            DISCORD_CLIENT_SECRET=self.discord_client_secret,
+            DISCORD_REDIRECT_URI=redirect_uri,
+            DISCORD_GUILD_ID=self.discord_guild_id,
+            DISCORD_API_BASE=self.discord_api_base,
+        )
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def google(self) -> GoogleOAuthConfig:
+        return GoogleOAuthConfig(
+            client_id=self.google_client_id,
+            client_secret=self.google_client_secret,
+            redirect_uri=self.google_redirect_uri,
+        )
 
     @computed_field  # type: ignore[misc]
     @property

@@ -35,7 +35,8 @@ class MinecraftQuery:
 
             # Send handshake packet
             handshake = (
-                self._pack_varint(47)
+                self._pack_varint(0)
+                + self._pack_varint(47)
                 + self._pack_string(self.host)
                 + struct.pack(">H", self.port)
                 + self._pack_varint(1)
@@ -51,7 +52,7 @@ class MinecraftQuery:
             await self._read_varint(reader)  # length (unused)
             await self._read_varint(reader)  # packet id (unused)
             json_length = await self._read_varint(reader)
-            json_data = await reader.read(json_length)
+            json_data = await reader.readexactly(json_length)
 
             writer.close()
             await writer.wait_closed()

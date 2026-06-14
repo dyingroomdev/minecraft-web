@@ -13,12 +13,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db_session, get_http_client, get_settings_dependency
 from app.core.config import Settings
 from app.core.security import sign_state, verify_state
+from app.schemas.auth import (
+    LogoutResponse,
+    TokenResponse,
+    UserLoginRequest,
+    UserRegisterRequest,
+)
 from app.services.auth import AuthService
 from app.services.discord import (
     DiscordOAuthService,
     map_discord_roles_to_rbac,
 )
-from app.schemas.auth import LogoutResponse, TokenResponse
+from app.services.google import GoogleOAuthService
 
 router = APIRouter()
 
@@ -48,6 +54,61 @@ def _clear_refresh_cookie(response: Response, *, settings: Settings) -> None:
     )
 
 
+def _token_response(token_bundle, settings: Settings) -> JSONResponse:
+    response = JSONResponse(
+        content=TokenResponse(
+            access_token=token_bundle.access_token,
+            token_type=token_bundle.token_type,
+            expires_at=token_bundle.access_expires_at,
+            refresh_expires_at=token_bundle.refresh_expires_at,
+            roles=token_bundle.roles,
+        ).model_dump(mode="json"),
+        status_code=status.HTTP_200_OK,
+    )
+    _set_refresh_cookie(
+        response,
+        token=token_bundle.refresh_token,
+        settings=settings,
+        expires_at=token_bundle.refresh_expires_at,
+    )
+    return response
+
+
+@router.post("/register", response_model=TokenResponse)
+async def register(
+    payload: UserRegisterRequest,
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings_dependency),
+) -> JSONResponse:
+    auth_service = AuthService(session=session, settings=settings)
+    user = await auth_service.register_user(
+        email=str(payload.email),
+        username=payload.username,
+        password=payload.password,
+    )
+    await auth_service.log_audit(user=user, action="auth.register")
+    token_bundle = await auth_service.issue_tokens(user=user)
+    await session.commit()
+    return _token_response(token_bundle, settings)
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    payload: UserLoginRequest,
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings_dependency),
+) -> JSONResponse:
+    auth_service = AuthService(session=session, settings=settings)
+    user = await auth_service.authenticate_credentials(
+        email=str(payload.email),
+        password=payload.password,
+    )
+    await auth_service.log_audit(user=user, action="auth.password.login")
+    token_bundle = await auth_service.issue_tokens(user=user)
+    await session.commit()
+    return _token_response(token_bundle, settings)
+
+
 @router.get("/discord/login")
 async def discord_login(
     settings: Settings = Depends(get_settings_dependency),
@@ -65,7 +126,7 @@ async def discord_login(
         "state": state,
         "prompt": "consent",
     }
-    query = httpx.QueryParams(params).render()
+    query = str(httpx.QueryParams(params))
     redirect_url = f"{settings.discord.authorize_url}?{query}"
 
     response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
@@ -117,7 +178,7 @@ async def discord_callback(
     )
 
     auth_service = AuthService(session=session, settings=settings)
-    user = await auth_service.upsert_user(
+    user = await auth_service.upsert_discord_user(
         discord_user=discord_user,
         roles=rbac_roles,
     )
@@ -135,24 +196,86 @@ async def discord_callback(
 
     await session.commit()
 
-    response = JSONResponse(
-        content=TokenResponse(
-            access_token=token_bundle.access_token,
-            token_type=token_bundle.token_type,
-            expires_at=token_bundle.access_expires_at,
-            refresh_expires_at=token_bundle.refresh_expires_at,
-            roles=token_bundle.roles,
-        ).model_dump(),
-        status_code=status.HTTP_200_OK,
-    )
-    _set_refresh_cookie(
-        response,
-        token=token_bundle.refresh_token,
-        settings=settings,
-        expires_at=token_bundle.refresh_expires_at,
-    )
+    response = _token_response(token_bundle, settings)
     response.delete_cookie(
         key=settings.discord_state_cookie_name,
+        domain=settings.jwt_refresh_cookie_domain,
+        path=settings.jwt_refresh_cookie_path,
+    )
+    return response
+
+
+@router.get("/google/login")
+async def google_login(
+    settings: Settings = Depends(get_settings_dependency),
+) -> RedirectResponse:
+    if not settings.google_client_id or not settings.google_client_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google login is not configured",
+        )
+
+    state = secrets.token_urlsafe(32)
+    params = {
+        "response_type": "code",
+        "client_id": settings.google.client_id,
+        "scope": "openid email profile",
+        "redirect_uri": settings.google.redirect_uri,
+        "state": state,
+        "prompt": "select_account",
+    }
+    response = RedirectResponse(
+        url=f"{settings.google.authorize_url}?{httpx.QueryParams(params)}",
+        status_code=status.HTTP_302_FOUND,
+    )
+    response.set_cookie(
+        key=settings.google_state_cookie_name,
+        value=sign_state(state, settings.jwt_secret),
+        max_age=settings.discord_state_ttl_seconds,
+        httponly=True,
+        secure=settings.jwt_refresh_cookie_secure,
+        samesite=settings.refresh_cookie_samesite,
+        domain=settings.jwt_refresh_cookie_domain,
+        path=settings.jwt_refresh_cookie_path,
+    )
+    return response
+
+
+@router.get("/google/callback", response_model=TokenResponse)
+async def google_callback(
+    request: Request,
+    code: str,
+    state: str,
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings_dependency),
+    http_client: httpx.AsyncClient = Depends(get_http_client),
+) -> JSONResponse:
+    signature = request.cookies.get(settings.google_state_cookie_name)
+    if not signature or not verify_state(state, signature, settings.jwt_secret):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid state parameter")
+
+    service = GoogleOAuthService(settings.google, http_client)
+    try:
+        token = await service.exchange_code(code=code)
+        google_user = await service.fetch_user(access_token=token.access_token)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google API error") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Google request failed") from exc
+
+    auth_service = AuthService(session=session, settings=settings)
+    user = await auth_service.upsert_google_user(google_user=google_user)
+    await auth_service.log_audit(
+        user=user,
+        action="auth.google.login",
+        metadata={"google_id": google_user.sub},
+    )
+    token_bundle = await auth_service.issue_tokens(user=user)
+    await session.commit()
+
+    response = _token_response(token_bundle, settings)
+    response.delete_cookie(
+        key=settings.google_state_cookie_name,
         domain=settings.jwt_refresh_cookie_domain,
         path=settings.jwt_refresh_cookie_path,
     )

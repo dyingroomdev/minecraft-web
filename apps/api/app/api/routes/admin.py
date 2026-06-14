@@ -18,6 +18,7 @@ from app.db.models import (
     HeroSlide,
     Leaderboard,
     NewsPost,
+    Rank,
     Rule,
     ServerFeature,
     SocialLink,
@@ -81,6 +82,37 @@ async def _ensure_unique_slug(
 async def _generate_unique_slug(session: AsyncSession, title: str) -> str:
     base = _generate_slug(title)
     return await _ensure_unique_slug(session, base)
+
+
+async def _ensure_unique_rule_slug(session: AsyncSession, value: str) -> str:
+    base = _generate_slug(value)
+    candidate = base
+    suffix = 2
+    while True:
+        result = await session.execute(select(Rule.id).where(Rule.slug == candidate))
+        if result.scalar_one_or_none() is None:
+            return candidate
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+
+
+async def _ensure_unique_event_slug(
+    session: AsyncSession,
+    value: str,
+    exclude_id: uuid.UUID | None = None,
+) -> str:
+    base = _generate_slug(value)
+    candidate = base
+    suffix = 2
+    while True:
+        stmt = select(Event.id).where(Event.slug == candidate)
+        if exclude_id is not None:
+            stmt = stmt.where(Event.id != exclude_id)
+        result = await session.execute(stmt)
+        if result.scalar_one_or_none() is None:
+            return candidate
+        candidate = f"{base}-{suffix}"
+        suffix += 1
 
 
 async def _get_news_or_404(session: AsyncSession, news_id: uuid.UUID) -> NewsPost:
@@ -251,7 +283,20 @@ async def create_event(
     session: AsyncSession = Depends(get_db_session),
     _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> Event:
-    event = Event(**payload.model_dump())
+    data = payload.model_dump()
+    data["slug"] = await _ensure_unique_event_slug(session, data["slug"])
+    data["title"] = sanitize_text(data["title"])
+    data["description"] = sanitize_markdown(data["description"])
+    if data.get("location") is not None:
+        data["location"] = sanitize_text(data["location"])
+    if data.get("featured_image_url") is not None:
+        data["featured_image_url"] = sanitize_text(data["featured_image_url"])
+    if data.get("start_at") and data.get("end_at") and data["end_at"] < data["start_at"]:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Event end date must be after the start date",
+        )
+    event = Event(**data)
     session.add(event)
     await session.commit()
     await session.refresh(event)
@@ -266,7 +311,25 @@ async def update_event(
     _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> Event:
     event = await _get_event_or_404(session, event_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if updates.get("slug"):
+        updates["slug"] = await _ensure_unique_event_slug(session, updates["slug"], event.id)
+    if updates.get("title"):
+        updates["title"] = sanitize_text(updates["title"])
+    if updates.get("description"):
+        updates["description"] = sanitize_markdown(updates["description"])
+    if "location" in updates and updates["location"] is not None:
+        updates["location"] = sanitize_text(updates["location"])
+    if "featured_image_url" in updates and updates["featured_image_url"] is not None:
+        updates["featured_image_url"] = sanitize_text(updates["featured_image_url"])
+    start_at = updates.get("start_at", event.start_at)
+    end_at = updates.get("end_at", event.end_at)
+    if start_at and end_at and end_at < start_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Event end date must be after the start date",
+        )
+    for field, value in updates.items():
         setattr(event, field, value)
     await session.commit()
     await session.refresh(event)
@@ -292,6 +355,7 @@ async def create_rule(
     _: AdminUser = Depends(require_admin(AdminRole.SUPER_ADMIN)),
 ) -> Rule:
     data = payload.model_dump()
+    data["slug"] = await _ensure_unique_rule_slug(session, data.get("slug") or data["title"])
     data["title"] = sanitize_text(data["title"])
     data["content"] = sanitize_markdown(data["content"])
     if data.get("category") is not None:
@@ -600,3 +664,111 @@ async def upload_leaderboard(
     # This is a minimal implementation to prevent 404 errors
     # Add actual leaderboard upload logic here when needed
     return {"message": "Leaderboard upload endpoint - not yet implemented"}
+
+
+@router.get("/ranks", response_model=list[dict])
+async def list_ranks_admin(
+    session: AsyncSession = Depends(get_db_session),
+    _: AdminUser = Depends(require_admin()),
+) -> list[dict]:
+    """Get all ranks for admin management."""
+    result = await session.execute(select(Rank).order_by(Rank.priority.desc(), Rank.name))
+    ranks = result.scalars().all()
+    
+    return [
+        {
+            "id": str(rank.id),
+            "name": rank.name,
+            "display_name": rank.display_name,
+            "priority": rank.priority,
+            "meta_data": rank.meta_data,
+            "created_at": rank.created_at.isoformat(),
+            "updated_at": rank.updated_at.isoformat() if rank.updated_at else None,
+        }
+        for rank in ranks
+    ]
+
+
+@router.post("/ranks", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_rank(
+    payload: dict,
+    session: AsyncSession = Depends(get_db_session),
+    _: AdminUser = Depends(require_admin()),
+) -> dict:
+    """Create a new rank."""
+    rank = Rank(
+        name=payload["name"],
+        display_name=payload["display_name"],
+        priority=payload.get("priority", 0),
+        meta_data=payload.get("meta_data", {}),
+    )
+    session.add(rank)
+    await session.commit()
+    await session.refresh(rank)
+    
+    return {
+        "id": str(rank.id),
+        "name": rank.name,
+        "display_name": rank.display_name,
+        "priority": rank.priority,
+        "meta_data": rank.meta_data,
+        "created_at": rank.created_at.isoformat(),
+        "updated_at": rank.updated_at.isoformat() if rank.updated_at else None,
+    }
+
+
+@router.put("/ranks/{rank_id}", response_model=dict)
+async def update_rank(
+    rank_id: uuid.UUID,
+    payload: dict,
+    session: AsyncSession = Depends(get_db_session),
+    _: AdminUser = Depends(require_admin()),
+) -> dict:
+    """Update rank information."""
+    result = await session.execute(select(Rank).where(Rank.id == rank_id))
+    rank = result.scalar_one_or_none()
+    if not rank:
+        raise HTTPException(status_code=404, detail="Rank not found")
+    
+    # Update allowed fields
+    if "display_name" in payload:
+        rank.display_name = payload["display_name"]
+    if "priority" in payload:
+        rank.priority = payload["priority"]
+    if "meta_data" in payload:
+        # Create a new dict to trigger SQLAlchemy change detection
+        new_meta_data = dict(rank.meta_data)
+        new_meta_data.update(payload["meta_data"])
+        rank.meta_data = new_meta_data
+    
+    # Mark as updated
+    rank.updated_at = datetime.now(timezone.utc)
+    
+    await session.commit()
+    await session.refresh(rank)
+    
+    return {
+        "id": str(rank.id),
+        "name": rank.name,
+        "display_name": rank.display_name,
+        "priority": rank.priority,
+        "meta_data": rank.meta_data,
+        "created_at": rank.created_at.isoformat(),
+        "updated_at": rank.updated_at.isoformat() if rank.updated_at else None,
+    }
+
+
+@router.delete("/ranks/{rank_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_rank(
+    rank_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db_session),
+    _: AdminUser = Depends(require_admin()),
+) -> None:
+    """Delete a rank."""
+    result = await session.execute(select(Rank).where(Rank.id == rank_id))
+    rank = result.scalar_one_or_none()
+    if not rank:
+        raise HTTPException(status_code=404, detail="Rank not found")
+    
+    await session.delete(rank)
+    await session.commit()

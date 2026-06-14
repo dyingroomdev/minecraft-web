@@ -8,7 +8,7 @@ import struct
 from datetime import datetime, timezone
 from typing import Any
 
-import aioredis
+from redis import asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from worker.config import WorkerSettings
@@ -30,7 +30,13 @@ class MinecraftQuery:
             )
             
             # Send handshake packet
-            handshake = self._pack_varint(47) + self._pack_string(self.host) + struct.pack('>H', self.port) + self._pack_varint(1)
+            handshake = (
+                self._pack_varint(0)
+                + self._pack_varint(47)
+                + self._pack_string(self.host)
+                + struct.pack('>H', self.port)
+                + self._pack_varint(1)
+            )
             packet = self._pack_varint(len(handshake)) + handshake
             writer.write(packet)
             
@@ -44,7 +50,7 @@ class MinecraftQuery:
             length = await self._read_varint(reader)
             packet_id = await self._read_varint(reader)
             json_length = await self._read_varint(reader)
-            json_data = await reader.read(json_length)
+            json_data = await reader.readexactly(json_length)
             
             writer.close()
             await writer.wait_closed()
@@ -173,15 +179,18 @@ class RCONService:
         self.password = password
         self._request_id = 1
     
-    async def grant_rank(self, mc_uuid: str, group: str) -> None:
+    async def grant_rank(self, mc_uuid: str, group: str, *, duration_days: int | None = None) -> str:
         """Grant a LuckPerms group to a player."""
-        command = f"lp user {mc_uuid} parent add {group}"
-        await self._execute_command(command)
-    
-    async def remove_rank(self, mc_uuid: str, group: str) -> None:
+        if duration_days:
+            command = f"lp user {mc_uuid} parent addtemp {group} {duration_days}d"
+        else:
+            command = f"lp user {mc_uuid} parent add {group}"
+        return await self._execute_command(command)
+
+    async def remove_rank(self, mc_uuid: str, group: str) -> str:
         """Remove a LuckPerms group from a player."""
         command = f"lp user {mc_uuid} parent remove {group}"
-        await self._execute_command(command)
+        return await self._execute_command(command)
     
     async def _execute_command(self, command: str) -> str:
         """Execute RCON command and return response."""

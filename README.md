@@ -1,12 +1,13 @@
 # AMZCraft Monorepo
 
-Monorepo containing the AMZCraft backend API, background worker, and React front-end.
+Monorepo containing the AMZCraft backend API, background worker, public/user frontend, and admin dashboard.
 
 ## Structure
 
 - `apps/api` – FastAPI service exposing core APIs.
 - `apps/worker` – Async worker for background jobs.
-- `apps/web` – Vite + React front-end with Tailwind and shadcn/ui.
+- `apps/frontend` – Public website, Discord authentication, and user dashboard flows.
+- `apps/admin` – Standalone administration dashboard.
 
 ## Getting started
 
@@ -18,10 +19,12 @@ Monorepo containing the AMZCraft backend API, background worker, and React front
    ```bash
    pip install pre-commit && pre-commit install
    ```
-3. (Optional) Create Python virtual environments per app and install dependencies:
+3. Install application dependencies:
    ```bash
    cd apps/api && pip install -e .[dev]
    cd apps/worker && pip install -e .[dev]
+   cd apps/frontend && npm install
+   cd apps/admin && npm install
    ```
 4. Start the stack with Docker Compose:
    ```bash
@@ -40,12 +43,19 @@ Monorepo containing the AMZCraft backend API, background worker, and React front
   ```
   (run from the repository root with the desired virtual environment active)
 
-- Front-end:
+- Public frontend and user dashboard:
   ```bash
-  cd apps/web
-  npm install
+  cd apps/frontend
   npm run dev
   ```
+  Runs on `http://localhost:5173`.
+
+- Admin dashboard:
+  ```bash
+  cd apps/admin
+  npm run dev
+  ```
+  Runs on `http://localhost:5174/admin`.
 
 ## Tooling
 

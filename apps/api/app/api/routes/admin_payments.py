@@ -35,12 +35,10 @@ async def list_payments(
     session: AsyncSession = Depends(get_db_session),
     _: AdminUser = Depends(require_admin()),
 ) -> list[PaymentRequest]:
-    stmt = (
-        select(PaymentRequest)
-        .options(selectinload(PaymentRequest.rank_product))
-        .where(PaymentRequest.status == status_filter)
-        .order_by(PaymentRequest.created_at.desc())
-    )
+    stmt = select(PaymentRequest).options(selectinload(PaymentRequest.rank_product))
+    if status_filter != "all":
+        stmt = stmt.where(PaymentRequest.status == status_filter)
+    stmt = stmt.order_by(PaymentRequest.created_at.desc())
     result = await session.execute(stmt)
     return result.scalars().all()
 

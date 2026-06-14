@@ -4,13 +4,37 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.routes import admin, admin_auth, admin_brand, admin_dashboard, admin_diagnostics, admin_leaderboards, admin_media, admin_payments, admin_rules, admin_users, auth, brand_public, events, payments, public, users, websocket
+from app.api.routes import (
+    admin,
+    admin_auth,
+    admin_brand,
+    admin_contacts,
+    admin_dashboard,
+    admin_diagnostics,
+    admin_leaderboards,
+    admin_media,
+    admin_payments,
+    admin_ranks,
+    admin_rules,
+    admin_shop,
+    admin_users,
+    auth,
+    brand_public,
+    events,
+    payments,
+    public,
+    shop,
+    users,
+    websocket,
+)
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, tags=["users"])
 api_router.include_router(public.router, tags=["public"])
+api_router.include_router(shop.router, tags=["shop"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(admin_shop.router, tags=["admin-shop"])
 api_router.include_router(websocket.router, tags=["websocket"])
 api_router.include_router(payments.router, prefix="/api/payments", tags=["payments"])
 api_router.include_router(admin_leaderboards.router, tags=["admin-leaderboards"])
@@ -23,4 +47,5 @@ api_router.include_router(admin_auth.router, prefix="/admin/auth", tags=["admin-
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin-users"])
 api_router.include_router(brand_public.router, prefix="/api", tags=["brand-public"])
 api_router.include_router(admin_brand.router, prefix="/admin", tags=["admin-brand"])
+api_router.include_router(admin_contacts.router, tags=["admin-contact-requests"])
 api_router.include_router(admin_dashboard.router, tags=["admin-dashboard"])

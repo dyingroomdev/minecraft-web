@@ -206,6 +206,19 @@ class VoteLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
+class TeamMember(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Staff members showcased on the public homepage."""
+
+    __tablename__ = "team_members"
+
+    name: Mapped[str] = mapped_column(String(140), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="Member")
+    discord_username: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
 class HeroSlide(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Hero slider entries for the homepage."""
 

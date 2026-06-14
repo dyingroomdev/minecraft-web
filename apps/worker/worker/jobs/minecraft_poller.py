@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-import aioredis
+from redis import asyncio as aioredis
 import structlog
 
 from worker.config import get_worker_settings

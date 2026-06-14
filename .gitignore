@@ -5,6 +5,8 @@ __pycache__/
 .venv/
 .env
 .env.*
+!apps/frontend/.env.example
+!apps/admin/.env.example
 .mypy_cache/
 .pytest_cache/
 ruff_cache/
@@ -13,7 +15,6 @@ htmlcov/
 
 # Node / frontend
 node_modules/
-apps/web/node_modules/
 dist/
 build/
 .vite/

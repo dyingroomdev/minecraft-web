@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.enums import RBACRole
 
@@ -14,6 +14,7 @@ from app.core.enums import RBACRole
 class ServerStatusRead(BaseModel):
     online: bool
     player_count: int = 0
+    max_players: int = 0
     motd: str | None = None
     version: str | None = None
     java_ip: str | None = None
@@ -77,7 +78,7 @@ class RuleRead(BaseModel):
 
 
 class RuleCreate(BaseModel):
-    slug: str
+    slug: str | None = None
     title: str
     content: str
     category: str | None = None
@@ -124,6 +125,7 @@ class EventCreate(BaseModel):
 
 
 class EventUpdate(BaseModel):
+    slug: str | None = None
     title: str | None = None
     description: str | None = None
     featured_image_url: str | None = None
@@ -149,6 +151,14 @@ class LeaderboardRead(BaseModel):
     metadata: dict[str, Any] = Field(alias="meta_data", serialization_alias="metadata")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class MinecraftDashboardRead(BaseModel):
+    season_stats: dict[str, int] = Field(default_factory=dict)
+    leaderboard: LeaderboardRead | None = None
+    live_leaderboard: list[LeaderboardEntry] = Field(default_factory=list)
+    live_activity: list[dict[str, Any]] = Field(default_factory=list)
+    live_activity_source: str = "not_configured"
 
 
 class PlayerGuild(BaseModel):
@@ -197,6 +207,55 @@ class SocialLinksUpdate(BaseModel):
     tiktok: str | None = None
     instagram: str | None = None
     website: str | None = None
+
+
+ContactRequestType = Literal["ban_appeal", "bug_report", "staff_application", "contact"]
+ContactRequestStatus = Literal["open", "in_progress", "resolved", "closed"]
+
+
+class ContactRequestCreate(BaseModel):
+    request_type: ContactRequestType
+    name: str = Field(min_length=2, max_length=100)
+    email: str = Field(min_length=5, max_length=254)
+    minecraft_username: str | None = Field(default=None, max_length=32)
+    subject: str = Field(min_length=3, max_length=140)
+    message: str = Field(min_length=10, max_length=5000)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+            raise ValueError("Enter a valid email address")
+        return normalized
+
+    @field_validator("name", "subject", "message")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("minecraft_username")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        normalized = value.strip() if value else ""
+        return normalized or None
+
+
+class ContactRequestRead(BaseModel):
+    id: uuid.UUID
+    request_type: ContactRequestType
+    name: str
+    email: str
+    minecraft_username: str | None = None
+    subject: str
+    message: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ContactRequestStatusUpdate(BaseModel):
+    status: ContactRequestStatus
 
 
 class VoteLinkRead(BaseModel):

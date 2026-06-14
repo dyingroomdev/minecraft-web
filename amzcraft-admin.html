@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AmzCraft Control — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --bg:        #08080f;
+  --sidebar:   #0c0c16;
+  --surface:   #11111e;
+  --card:      #161625;
+  --card2:     #1c1c2e;
+  --border:    #252538;
+  --border2:   #32324f;
+  --emerald:   #00e676;
+  --emerald-d: #00b85c;
+  --emerald-g: rgba(0,230,118,0.10);
+  --gold:      #ffd700;
+  --gold-g:    rgba(255,215,0,0.10);
+  --diamond:   #5de0f0;
+  --diamond-g: rgba(93,224,240,0.10);
+  --danger:    #ff4757;
+  --danger-g:  rgba(255,71,87,0.10);
+  --warning:   #ffa502;
+  --warning-g: rgba(255,165,2,0.10);
+  --purple:    #a855f7;
+  --purple-g:  rgba(168,85,247,0.10);
+  --txt:       #eeeeff;
+  --txt2:      #9898bb;
+  --txt3:      #55557a;
+  --sidebar-w: 224px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--txt);
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════
+   SIDEBAR
+══════════════════════════════ */
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+  position: relative;
+  z-index: 10;
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 160px;
+  background: radial-gradient(ellipse 140% 100% at 50% 0%, rgba(0,230,118,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Brand header */
+.sidebar-brand {
+  padding: 1.25rem 1rem 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.brand-logo {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--txt);
+  letter-spacing: 0.03em;
+  margin-bottom: 0.625rem;
+}
+.brand-logo span { color: var(--emerald); }
+
+.brand-user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.brand-avatar {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  background: var(--emerald-g);
+  border: 1px solid rgba(0,230,118,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+  color: var(--emerald);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.brand-user-info { min-width: 0; }
+.brand-user-name { font-size: 0.78rem; font-weight: 600; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-user-email { font-size: 0.67rem; color: var(--txt3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.role-chip {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--emerald-g);
+  border: 1px solid rgba(0,230,118,0.25);
+  color: var(--emerald);
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  margin-top: 0.25rem;
+  display: inline-block;
+}
+
+/* Nav */
+.sidebar-nav {
+  flex: 1;
+  padding: 0.75rem 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.nav-group-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  padding: 0.875rem 0.5rem 0.4rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.55rem 0.625rem;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--txt2);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+  position: relative;
+  white-space: nowrap;
+}
+
+.nav-item:hover { background: rgba(255,255,255,0.04); color: var(--txt); }
+
+.nav-item.active {
+  background: var(--emerald-g);
+  color: var(--emerald);
+  border: 1px solid rgba(0,230,118,0.15);
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -0.625rem;
+  top: 50%; transform: translateY(-50%);
+  width: 3px; height: 60%;
+  background: var(--emerald);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-icon { font-size: 0.9rem; width: 16px; text-align: center; flex-shrink: 0; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.nav-badge.warning { background: var(--warning); color: #000; }
+.nav-badge.neutral { background: var(--border2); color: var(--txt2); }
+
+/* Sidebar footer */
+.sidebar-footer {
+  padding: 0.75rem 0.625rem;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sign-out-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.55rem 0.625rem;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--txt3);
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: 'Inter', sans-serif;
+}
+.sign-out-btn:hover { background: var(--danger-g); color: var(--danger); }
+
+/* ══════════════════════════════
+   MAIN LAYOUT
+══════════════════════════════ */
+.main-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,8,15,0.95);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.topbar-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--txt);
+}
+
+.topbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--txt3);
+}
+.topbar-breadcrumb span { color: var(--txt2); }
+.topbar-breadcrumb .sep { opacity: 0.4; }
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.uptime-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--txt2);
+}
+
+.uptime-chip .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--emerald);
+  box-shadow: 0 0 6px var(--emerald);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.topbar-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--txt2);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.topbar-btn:hover { border-color: var(--border2); color: var(--txt); }
+
+/* ── CONSOLE TICKER ── */
+.console-ticker {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ticker-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.67rem;
+  font-weight: 600;
+  color: var(--emerald);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ticker-divider { width: 1px; height: 14px; background: var(--border2); flex-shrink: 0; }
+
+.ticker-track {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+}
+
+.ticker-inner {
+  display: flex;
+  gap: 2.5rem;
+  white-space: nowrap;
+  animation: ticker-scroll 28s linear infinite;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--txt2);
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-event { display: inline-flex; align-items: center; gap: 0.4rem; }
+.ticker-event .te-name { color: var(--emerald); }
+.ticker-event .te-gold { color: var(--gold); }
+.ticker-event .te-red { color: var(--danger); }
+.ticker-event .te-blue { color: var(--diamond); }
+
+/* ── CONTENT SCROLL AREA ── */
+.content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+
+/* ══════════════════════════════
+   PAGES
+══════════════════════════════ */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── PAGE HEADER ── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.page-header-left {}
+.page-heading {
+  font-family: 'Cinzel', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 0.2rem;
+}
+.page-sub { font-size: 0.8rem; color: var(--txt3); }
+
+.page-header-actions { display: flex; gap: 0.625rem; align-items: center; flex-shrink: 0; }
+
+/* ── ACTION BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  text-decoration: none;
+}
+.btn-primary { background: var(--emerald); color: #000; }
+.btn-primary:hover { background: var(--emerald-d); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,230,118,0.3); }
+.btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--txt2); }
+.btn-ghost:hover { border-color: var(--border2); color: var(--txt); }
+.btn-danger { background: var(--danger-g); border: 1px solid rgba(255,71,87,0.25); color: var(--danger); }
+.btn-danger:hover { background: var(--danger); color: #fff; }
+
+/* ── KPI ROW ── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.125rem 1.25rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.kpi-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--kpi-color, var(--border2));
+  opacity: 0.8;
+}
+
+.kpi-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.75rem; }
+.kpi-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--txt3); }
+.kpi-icon { font-size: 1rem; width: 30px; height: 30px; border-radius: 7px; background: var(--kpi-bg, var(--surface)); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); }
+
+.kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 2rem; font-weight: 600; color: var(--txt); line-height: 1; margin-bottom: 0.4rem; }
+.kpi-value.colored { color: var(--kpi-color, var(--emerald)); }
+
+.kpi-footer { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--txt3); }
+.kpi-delta { font-weight: 600; }
+.kpi-delta.up { color: var(--emerald); }
+.kpi-delta.down { color: var(--danger); }
+.kpi-delta.neutral { color: var(--txt3); }
+
+/* ── GRID LAYOUTS ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.grid-3-1 { display: grid; grid-template-columns: 3fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem; }
+
+/* ── PANEL ── */
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.125rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--txt);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.panel-action {
+  font-size: 0.72rem;
+  color: var(--emerald);
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.panel-action:hover { opacity: 0.7; }
+
+.panel-body { padding: 1.125rem; }
+.panel-body-flush { }
+
+/* ── ACTIVITY FEED ── */
+.activity-list { display: flex; flex-direction: column; }
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1.125rem;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background 0.12s;
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-item:hover { background: rgba(255,255,255,0.02); }
+
+.activity-icon {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.activity-icon.payment { background: var(--emerald-g); border-color: rgba(0,230,118,0.2); }
+.activity-icon.news { background: var(--diamond-g); border-color: rgba(93,224,240,0.2); }
+.activity-icon.event { background: var(--gold-g); border-color: rgba(255,215,0,0.2); }
+.activity-icon.user { background: var(--purple-g); border-color: rgba(168,85,247,0.2); }
+.activity-icon.warning { background: var(--warning-g); border-color: rgba(255,165,2,0.2); }
+.activity-icon.danger { background: var(--danger-g); border-color: rgba(255,71,87,0.2); }
+
+.activity-content { flex: 1; min-width: 0; }
+.activity-text { font-size: 0.8rem; color: var(--txt); line-height: 1.45; }
+.activity-text strong { color: var(--txt); font-weight: 600; }
+.activity-text .actor { color: var(--emerald); font-weight: 600; }
+.activity-meta { font-size: 0.7rem; color: var(--txt3); margin-top: 0.2rem; display: flex; gap: 0.75rem; }
+.activity-time { margin-left: auto; font-size: 0.68rem; color: var(--txt3); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+
+/* ── PAYMENT TABLE ── */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  padding: 0.625rem 1rem;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--txt3);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  color: var(--txt2);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
+.data-table td strong { color: var(--txt); font-weight: 600; }
+.data-table .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+
+/* ── STATUS BADGES ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; display: block; }
+.badge-pending { background: var(--warning-g); color: var(--warning); border: 1px solid rgba(255,165,2,0.2); }
+.badge-approved { background: var(--emerald-g); color: var(--emerald); border: 1px solid rgba(0,230,118,0.2); }
+.badge-rejected { background: var(--danger-g); color: var(--danger); border: 1px solid rgba(255,71,87,0.2); }
+.badge-online  { background: var(--emerald-g); color: var(--emerald); border: 1px solid rgba(0,230,118,0.2); }
+.badge-offline { background: var(--danger-g); color: var(--danger); border: 1px solid rgba(255,71,87,0.2); }
+.badge-live    { background: var(--danger-g); color: var(--danger); border: 1px solid rgba(255,71,87,0.2); }
+.badge-info    { background: var(--diamond-g); color: var(--diamond); border: 1px solid rgba(93,224,240,0.2); }
+.badge-vip     { background: var(--emerald-g); color: var(--emerald); border: 1px solid rgba(0,230,118,0.2); }
+.badge-premium { background: var(--gold-g); color: var(--gold); border: 1px solid rgba(255,215,0,0.2); }
+.badge-legend  { background: var(--diamond-g); color: var(--diamond); border: 1px solid rgba(93,224,240,0.2); }
+
+/* ── PAYMENT SUMMARY PANEL ── */
+.payment-rows { display: flex; flex-direction: column; }
+.payment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.125rem;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.payment-row:last-child { border-bottom: none; }
+.payment-row-label { font-size: 0.8rem; color: var(--txt2); display: flex; align-items: center; gap: 0.5rem; }
+.payment-row-label .dot { width: 8px; height: 8px; border-radius: 50%; }
+.payment-row-value { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 600; }
+.payment-row-value.total { color: var(--txt); }
+.payment-row-value.pending { color: var(--warning); }
+.payment-row-value.approved { color: var(--emerald); }
+.payment-row-value.rejected { color: var(--danger); }
+
+.payment-total-highlight {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.875rem 1.125rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.payment-total-highlight .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--txt3); }
+.payment-total-highlight .val { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 600; color: var(--emerald); }
+
+/* ── SYSTEM HEALTH ── */
+.health-row {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1.125rem;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  gap: 0.75rem;
+}
+.health-row:last-child { border-bottom: none; }
+.health-label { font-size: 0.8rem; color: var(--txt2); flex: 1; }
+.health-value { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--txt); font-weight: 500; }
+.health-bar-wrap { width: 80px; }
+.health-bar { height: 4px; background: var(--surface); border-radius: 2px; overflow: hidden; }
+.health-bar-fill { height: 100%; border-radius: 2px; background: var(--emerald); transition: width 1s ease; }
+.health-bar-fill.warn { background: var(--warning); }
+.health-bar-fill.danger { background: var(--danger); }
+
+/* ── QUICK ACTIONS ── */
+.quick-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.quick-action-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  color: var(--txt2);
+}
+.quick-action-item:hover { border-color: var(--border2); color: var(--txt); transform: translateX(2px); }
+.quick-action-item.primary-action { border-color: rgba(0,230,118,0.2); background: var(--emerald-g); color: var(--emerald); }
+.quick-action-item.primary-action:hover { border-color: rgba(0,230,118,0.4); color: var(--emerald); }
+
+.qa-icon { font-size: 1rem; width: 32px; height: 32px; border-radius: 7px; background: var(--card); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.qa-text { flex: 1; }
+.qa-name { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.1rem; }
+.qa-desc { font-size: 0.7rem; color: var(--txt3); }
+.qa-arrow { color: var(--txt3); font-size: 0.8rem; }
+
+/* ── MINI CHART ── */
+.sparkline-wrap { display: flex; align-items: flex-end; gap: 3px; height: 40px; }
+.sparkline-bar { flex: 1; background: var(--emerald-g); border-radius: 2px 2px 0 0; border: 1px solid rgba(0,230,118,0.15); transition: background 0.2s; min-width: 8px; }
+.sparkline-bar:hover { background: rgba(0,230,118,0.25); }
+.sparkline-bar.gold { background: var(--gold-g); border-color: rgba(255,215,0,0.15); }
+
+/* ── REVENUE CHART (CSS only) ── */
+.rev-chart { padding: 0 1.125rem 1rem; }
+.rev-chart-area { display: flex; align-items: flex-end; gap: 4px; height: 100px; margin-bottom: 0.5rem; }
+.rev-bar { flex: 1; border-radius: 3px 3px 0 0; min-width: 12px; transition: opacity 0.2s; cursor: pointer; position: relative; }
+.rev-bar:hover { opacity: 0.8; }
+.rev-bar:hover::after {
+  content: attr(data-val);
+  position: absolute;
+  bottom: 100%; left: 50%; transform: translateX(-50%);
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  color: var(--txt);
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-bottom: 4px;
+  z-index: 10;
+}
+.rev-labels { display: flex; gap: 4px; }
+.rev-label { flex: 1; text-align: center; font-size: 0.62rem; color: var(--txt3); min-width: 12px; }
+
+/* ── ONLINE PLAYERS MAP ── */
+.city-list { display: flex; flex-direction: column; gap: 0; }
+.city-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 1.125rem;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.city-row:last-child { border-bottom: none; }
+.city-name { font-size: 0.8rem; color: var(--txt2); width: 80px; flex-shrink: 0; }
+.city-bar-wrap { flex: 1; }
+.city-bar { height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; }
+.city-bar-fill { height: 100%; background: linear-gradient(90deg, var(--emerald-d), var(--emerald)); border-radius: 3px; }
+.city-count { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--txt2); width: 28px; text-align: right; flex-shrink: 0; }
+
+/* ── RANK DISTRIBUTION ── */
+.rank-dist { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.625rem; }
+.rank-dist-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; text-align: center; }
+.rank-dist-num { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.2rem; }
+.rank-dist-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--txt3); }
+
+/* ── SEARCH BAR ── */
+.search-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.45rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: border-color 0.15s;
+}
+.search-bar:focus-within { border-color: var(--border2); }
+.search-bar input { background: none; border: none; color: var(--txt); font-size: 0.8rem; font-family: 'Inter', sans-serif; outline: none; width: 180px; }
+.search-bar input::placeholder { color: var(--txt3); }
+
+/* ── TABLE ROW ACTIONS ── */
+.row-action {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--txt3);
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.12s;
+  margin-left: 0.25rem;
+}
+.row-action:hover { border-color: var(--border2); color: var(--txt); }
+.row-action.approve { border-color: rgba(0,230,118,0.2); color: var(--emerald); }
+.row-action.approve:hover { background: var(--emerald); color: #000; border-color: var(--emerald); }
+.row-action.reject { border-color: rgba(255,71,87,0.2); color: var(--danger); }
+.row-action.reject:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* ── EMPTY STATE ── */
+.empty-state { padding: 2.5rem; text-align: center; }
+.empty-state-icon { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.4; }
+.empty-state-text { font-size: 0.82rem; color: var(--txt3); }
+
+/* ── FORM ELEMENTS ── */
+.form-group { margin-bottom: 1rem; }
+.form-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--txt2); margin-bottom: 0.35rem; letter-spacing: 0.03em; }
+.form-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--txt);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.75rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--emerald); }
+.form-input::placeholder { color: var(--txt3); }
+select.form-input { cursor: pointer; }
+textarea.form-input { resize: vertical; min-height: 80px; }
+
+/* ── TOGGLE ── */
+.toggle-wrap { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.toggle-wrap:last-child { border-bottom: none; }
+.toggle-info {}
+.toggle-name { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.1rem; }
+.toggle-desc { font-size: 0.72rem; color: var(--txt3); }
+.toggle { width: 36px; height: 20px; border-radius: 999px; background: var(--border2); cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; }
+.toggle.on { background: var(--emerald); }
+.toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left 0.2s; }
+.toggle.on::after { left: 19px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── NOTIFICATION BADGE ── */
+.notif-dot {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 1.5px solid var(--sidebar);
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════
+     SIDEBAR
+══════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">Amz<span>Craft</span> Control</div>
+    <div class="brand-user">
+      <div class="brand-avatar">HA</div>
+      <div class="brand-user-info">
+        <div class="brand-user-name">Hasan Admin</div>
+        <div class="brand-user-email">admin@amzcraft.xyz</div>
+        <div class="role-chip">Super Admin</div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <!-- Dashboard -->
+    <div class="nav-group-label">Dashboard</div>
+    <a class="nav-item active" onclick="showPage('overview')">
+      <span class="nav-icon">⬡</span> Overview
+    </a>
+    <a class="nav-item" onclick="showPage('payments')">
+      <span class="nav-icon">💳</span> Payments
+      <span class="nav-badge warning">3</span>
+    </a>
+
+    <!-- Content -->
+    <div class="nav-group-label">Content Management</div>
+    <a class="nav-item" onclick="showPage('news')"><span class="nav-icon">📰</span> News</a>
+    <a class="nav-item" onclick="showPage('events')"><span class="nav-icon">🎉</span> Events</a>
+    <a class="nav-item" onclick="showPage('rules')"><span class="nav-icon">🛡</span> Rules</a>
+    <a class="nav-item" onclick="showPage('votes')"><span class="nav-icon">🗳</span> Votes</a>
+    <a class="nav-item" onclick="showPage('hero')"><span class="nav-icon">🖼</span> Hero Slides</a>
+
+    <!-- Shop -->
+    <div class="nav-group-label">Shop</div>
+    <a class="nav-item" onclick="showPage('addproduct')"><span class="nav-icon">➕</span> Add Product</a>
+    <a class="nav-item" onclick="showPage('products')"><span class="nav-icon">📦</span> Product List</a>
+    <a class="nav-item" onclick="showPage('orders')">
+      <span class="nav-icon">🛒</span> Orders
+      <span class="nav-badge">12</span>
+    </a>
+    <a class="nav-item" onclick="showPage('sales')"><span class="nav-icon">📊</span> Sales Overview</a>
+
+    <!-- Systems -->
+    <div class="nav-group-label">Systems</div>
+    <a class="nav-item" onclick="showPage('ranks')"><span class="nav-icon">⭐</span> Ranks</a>
+    <a class="nav-item" onclick="showPage('leaderboards')"><span class="nav-icon">🏆</span> Leaderboards</a>
+    <a class="nav-item" onclick="showPage('social')"><span class="nav-icon">🔗</span> Social Links</a>
+    <a class="nav-item" onclick="showPage('brand')"><span class="nav-icon">🎨</span> Brand Settings</a>
+    <a class="nav-item" onclick="showPage('seo')"><span class="nav-icon">🔍</span> SEO Settings</a>
+    <a class="nav-item" onclick="showPage('diagnostics')"><span class="nav-icon">🔧</span> Diagnostics</a>
+
+    <!-- Admin -->
+    <div class="nav-group-label">Administration</div>
+    <a class="nav-item" onclick="showPage('users')"><span class="nav-icon">👤</span> Admin Users</a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <button class="sign-out-btn">
+      <span>↪</span> Sign Out
+    </button>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════
+     MAIN
+══════════════════════════════ -->
+<div class="main-wrap">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-breadcrumb">
+      <span>AmzCraft</span>
+      <span class="sep">/</span>
+      <span id="breadcrumb-current">Overview</span>
+    </div>
+    <div class="topbar-right">
+      <div class="search-bar">
+        <span style="color:var(--txt3);font-size:0.8rem;">🔍</span>
+        <input type="text" placeholder="Search players, orders…">
+      </div>
+      <div class="uptime-chip">
+        <div class="dot"></div>
+        Uptime: <span id="uptimeDisplay">02:14:38</span>
+      </div>
+      <button class="topbar-btn">🔔</button>
+      <button class="topbar-btn">⟳ Refresh</button>
+    </div>
+  </header>
+
+  <!-- CONSOLE TICKER (signature element) -->
+  <div class="console-ticker">
+    <div class="ticker-label">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--emerald);box-shadow:0 0 6px var(--emerald);display:inline-block;animation:pulse 1.5s ease-in-out infinite;"></span>
+      SERVER LOG
+    </div>
+    <div class="ticker-divider"></div>
+    <div class="ticker-track">
+      <div class="ticker-inner" id="tickerContent">
+        <span class="ticker-event">⚔ <span class="te-name">ShadowBlade_</span> eliminated <span class="te-red">NightWolf99</span> in PvP Arena</span>
+        <span class="ticker-event">💳 New payment received from <span class="te-name">DragonKing_BD</span> · Premium Rank · ৳1,000</span>
+        <span class="ticker-event">🏆 <span class="te-name">CrimsonArrow</span> reached <span class="te-gold">100K score milestone</span></span>
+        <span class="ticker-event">👤 New player <span class="te-name">TidalForce</span> joined the realm</span>
+        <span class="ticker-event">🗝 <span class="te-name">StormRaider</span> opened a <span class="te-gold">Legend Crate</span> and won Diamond Sword</span>
+        <span class="ticker-event">⚠ Anti-cheat flagged <span class="te-red">unknown_player_772</span> · speed hack detected · auto-banned</span>
+        <span class="ticker-event">🏗 Build contest submission from <span class="te-name">MoonWatcher</span> · AzureHaven v2</span>
+        <span class="ticker-event">💰 <span class="te-name">ArrowStrike_</span> purchased VIP Rank · ৳500 via bKash</span>
+        <span class="ticker-event">⚔ <span class="te-name">ShadowBlade_</span> eliminated <span class="te-red">NightWolf99</span> in PvP Arena</span>
+        <span class="ticker-event">💳 New payment received from <span class="te-name">DragonKing_BD</span> · Premium Rank · ৳1,000</span>
+        <span class="ticker-event">🏆 <span class="te-name">CrimsonArrow</span> reached <span class="te-gold">100K score milestone</span></span>
+        <span class="ticker-event">👤 New player <span class="te-name">TidalForce</span> joined the realm</span>
+        <span class="ticker-event">🗝 <span class="te-name">StormRaider</span> opened a <span class="te-gold">Legend Crate</span> and won Diamond Sword</span>
+        <span class="ticker-event">⚠ Anti-cheat flagged <span class="te-red">unknown_player_772</span> · speed hack detected · auto-banned</span>
+        <span class="ticker-event">🏗 Build contest submission from <span class="te-name">MoonWatcher</span> · AzureHaven v2</span>
+        <span class="ticker-event">💰 <span class="te-name">ArrowStrike_</span> purchased VIP Rank · ৳500 via bKash</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT AREA -->
+  <div class="content-scroll">
+
+    <!-- ══ OVERVIEW PAGE ══ -->
+    <div class="page active" id="page-overview">
+
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="page-heading">Dashboard Overview</div>
+          <div class="page-sub">Sunday, June 14, 2026 · Season 4 — Nether Kingdoms</div>
+        </div>
+        <div class="page-header-actions">
+          <button class="btn btn-ghost">⬇ Export Report</button>
+          <button class="btn btn-primary" onclick="showPage('addproduct')">+ Add Product</button>
+        </div>
+      </div>
+
+      <!-- KPI ROW -->
+      <div class="kpi-row">
+        <div class="kpi-card" style="--kpi-color:var(--emerald);--kpi-bg:var(--emerald-g);">
+          <div class="kpi-header">
+            <div class="kpi-label">Server Status</div>
+            <div class="kpi-icon">🌐</div>
+          </div>
+          <div class="kpi-value colored"><span class="badge badge-online" style="font-size:0.9rem;padding:0.25rem 0.625rem;">Online</span></div>
+          <div class="kpi-footer">
+            <span class="kpi-delta up">●</span>
+            <span>47 / 200 players · v1.21.1</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:var(--warning);--kpi-bg:var(--warning-g);">
+          <div class="kpi-header">
+            <div class="kpi-label">Pending Payments</div>
+            <div class="kpi-icon">💳</div>
+          </div>
+          <div class="kpi-value colored">3</div>
+          <div class="kpi-footer">
+            <span class="kpi-delta up">↑2</span>
+            <span>since yesterday</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:var(--diamond);--kpi-bg:var(--diamond-g);">
+          <div class="kpi-header">
+            <div class="kpi-label">Total News Posts</div>
+            <div class="kpi-icon">📰</div>
+          </div>
+          <div class="kpi-value">14</div>
+          <div class="kpi-footer">
+            <span class="kpi-delta up">+2</span>
+            <span>this week</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:var(--gold);--kpi-bg:var(--gold-g);">
+          <div class="kpi-header">
+            <div class="kpi-label">Active Events</div>
+            <div class="kpi-icon">🎉</div>
+          </div>
+          <div class="kpi-value">2</div>
+          <div class="kpi-footer">
+            <span class="kpi-delta neutral">—</span>
+            <span>3 upcoming</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Second KPI row -->
+      <div class="kpi-row" style="margin-bottom:1.25rem;">
+        <div class="kpi-card" style="--kpi-color:var(--purple);--kpi-bg:var(--purple-g);">
+          <div class="kpi-header">
+            <div class="kpi-label">Total Revenue (S4)</div>
+            <div class="kpi-icon">💰</div>
+          </div>
+          <div class="kpi-value colored" style="color:var(--purple);">৳48,500</div>
+          <div class="kpi-footer">
+            <span class="kpi-delta up">↑12%</span>
+            <span>vs last season</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:var(--emerald);--kpi-bg:var(--emerald-g);">
+          <div class="kpi-header">
+            <div class="kpi-label">Registered Users</div>
+            <div class="kpi-icon">👥</div>
+          </div>
+          <div class="kpi-value">2,418</div>
+          <div class="kpi-footer">
+            <span class="kpi-delta up">+34</span>
+            <span>this week</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:var(--gold);--kpi-bg:var(--gold-g);">
+          <div class="kpi-header">
+            <div class="kpi-label">Premium Members</div>
+            <div class="kpi-icon">⭐</div>
+          </div>
+          <div class="kpi-value colored" style="color:var(--gold);">184</div>
+          <div class="kpi-footer">
+            <span class="kpi-delta up">+7</span>
+            <span>this month</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color:var(--danger);--kpi-bg:var(--danger-g);">
+          <div class="kpi-header">
+            <div class="kpi-label">Bans This Week</div>
+            <div class="kpi-icon">🚫</div>
+          </div>
+          <div class="kpi-value colored" style="color:var(--danger);">6</div>
+          <div class="kpi-footer">
+            <span class="kpi-delta down">↓3</span>
+            <span>vs last week</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row: Activity + Payment Summary -->
+      <div class="grid-3-1">
+        <!-- Recent Activity -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">⚡ Recent Activity</div>
+            <span class="panel-action">View all</span>
+          </div>
+          <div class="activity-list">
+            <div class="activity-item">
+              <div class="activity-icon payment">💳</div>
+              <div class="activity-content">
+                <div class="activity-text"><span class="actor">DragonKing_BD</span> purchased <strong>Premium Rank</strong> for ৳1,000 via bKash</div>
+                <div class="activity-meta"><span>bKash · TXN#8847221</span><span><span class="badge badge-pending">Pending</span></span></div>
+              </div>
+              <div class="activity-time">4m ago</div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon user">👤</div>
+              <div class="activity-content">
+                <div class="activity-text">New player <strong>WhirlwindZ</strong> registered and joined the realm</div>
+                <div class="activity-meta"><span>Bedrock Edition</span></div>
+              </div>
+              <div class="activity-time">11m ago</div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon payment">💳</div>
+              <div class="activity-content">
+                <div class="activity-text"><span class="actor">StormRaider</span> purchased <strong>VIP Rank</strong> for ৳500</div>
+                <div class="activity-meta"><span>bKash · TXN#8847198</span><span><span class="badge badge-approved">Approved</span></span></div>
+              </div>
+              <div class="activity-time">28m ago</div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon warning">⚠️</div>
+              <div class="activity-content">
+                <div class="activity-text">Anti-cheat flagged <strong>unknown_772</strong> — speed hack detected</div>
+                <div class="activity-meta"><span>Auto-banned · Java Edition</span></div>
+              </div>
+              <div class="activity-time">42m ago</div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon news">📰</div>
+              <div class="activity-content">
+                <div class="activity-text"><span class="actor">EventMaster_Rafi</span> published <strong>Guild War Championship — Registrations Open</strong></div>
+                <div class="activity-meta"><span>News · Pinned</span></div>
+              </div>
+              <div class="activity-time">1h ago</div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon event">🎉</div>
+              <div class="activity-content">
+                <div class="activity-text">Event <strong>Underwater Kingdom Build Contest</strong> status changed to Live</div>
+                <div class="activity-meta"><span>147 entries received</span></div>
+              </div>
+              <div class="activity-time">2h ago</div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon payment">💳</div>
+              <div class="activity-content">
+                <div class="activity-text"><span class="actor">FoxRunner</span> payment <strong>rejected</strong> — bKash verification failed</div>
+                <div class="activity-meta"><span>Legend Rank · ৳2,000</span><span><span class="badge badge-rejected">Rejected</span></span></div>
+              </div>
+              <div class="activity-time">3h ago</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Summary -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">💰 Payment Summary</div>
+            <span class="panel-action" onclick="showPage('payments')">Manage →</span>
+          </div>
+          <div class="payment-total-highlight">
+            <div class="label">Season 4 Revenue</div>
+            <div class="val">৳48,500</div>
+          </div>
+          <div class="payment-rows">
+            <div class="payment-row">
+              <div class="payment-row-label"><div class="dot" style="background:var(--txt3)"></div>Total Orders</div>
+              <div class="payment-row-value total">97</div>
+            </div>
+            <div class="payment-row">
+              <div class="payment-row-label"><div class="dot" style="background:var(--warning)"></div>Pending</div>
+              <div class="payment-row-value pending">3</div>
+            </div>
+            <div class="payment-row">
+              <div class="payment-row-label"><div class="dot" style="background:var(--emerald)"></div>Approved</div>
+              <div class="payment-row-value approved">91</div>
+            </div>
+            <div class="payment-row">
+              <div class="payment-row-label"><div class="dot" style="background:var(--danger)"></div>Rejected</div>
+              <div class="payment-row-value rejected">3</div>
+            </div>
+          </div>
+          <div style="padding:0.875rem 1.125rem;border-top:1px solid var(--border);">
+            <div style="font-size:0.72rem;color:var(--txt3);margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.06em;">Revenue — Last 7 days</div>
+            <div class="sparkline-wrap">
+              <div class="sparkline-bar gold" style="height:30%"></div>
+              <div class="sparkline-bar gold" style="height:50%"></div>
+              <div class="sparkline-bar gold" style="height:35%"></div>
+              <div class="sparkline-bar gold" style="height:80%"></div>
+              <div class="sparkline-bar gold" style="height:60%"></div>
+              <div class="sparkline-bar gold" style="height:90%"></div>
+              <div class="sparkline-bar gold" style="height:75%;background:rgba(255,215,0,0.25);border-color:rgba(255,215,0,0.4);"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:0.35rem;font-size:0.62rem;color:var(--txt3);font-family:'JetBrains Mono',monospace;">
+              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Today</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row: Quick Actions + System Health + Player distribution -->
+      <div class="grid-3">
+        <!-- Quick Actions -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">⚡ Quick Actions</div>
+          </div>
+          <div class="panel-body">
+            <div class="quick-actions">
+              <a class="quick-action-item primary-action" onclick="showPage('payments')">
+                <div class="qa-icon">💳</div>
+                <div class="qa-text">
+                  <div class="qa-name">Review Pending Payments</div>
+                  <div class="qa-desc">3 transactions awaiting approval</div>
+                </div>
+                <span class="qa-arrow">→</span>
+              </a>
+              <a class="quick-action-item" onclick="showPage('news')">
+                <div class="qa-icon">📰</div>
+                <div class="qa-text">
+                  <div class="qa-name">Create News Post</div>
+                  <div class="qa-desc">Announce updates to players</div>
+                </div>
+                <span class="qa-arrow">→</span>
+              </a>
+              <a class="quick-action-item" onclick="showPage('events')">
+                <div class="qa-icon">🎉</div>
+                <div class="qa-text">
+                  <div class="qa-name">Manage Events</div>
+                  <div class="qa-desc">2 live · 3 upcoming</div>
+                </div>
+                <span class="qa-arrow">→</span>
+              </a>
+              <a class="quick-action-item" onclick="showPage('users')">
+                <div class="qa-icon">👤</div>
+                <div class="qa-text">
+                  <div class="qa-name">Admin Users</div>
+                  <div class="qa-desc">Manage staff permissions</div>
+                </div>
+                <span class="qa-arrow">→</span>
+              </a>
+              <a class="quick-action-item" onclick="showPage('diagnostics')">
+                <div class="qa-icon">🔧</div>
+                <div class="qa-text">
+                  <div class="qa-name">Run Diagnostics</div>
+                  <div class="qa-desc">Check server health</div>
+                </div>
+                <span class="qa-arrow">→</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Health -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🖥 System Health</div>
+            <span class="panel-action">Details</span>
+          </div>
+          <div class="health-row">
+            <div class="health-label">Server Status</div>
+            <div class="health-bar-wrap"></div>
+            <div class="health-value"><span class="badge badge-online">Online</span></div>
+          </div>
+          <div class="health-row">
+            <div class="health-label">CPU Load</div>
+            <div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill" style="width:32%"></div></div></div>
+            <div class="health-value">32%</div>
+          </div>
+          <div class="health-row">
+            <div class="health-label">RAM Usage</div>
+            <div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill warn" style="width:67%"></div></div></div>
+            <div class="health-value" style="color:var(--warning);">67%</div>
+          </div>
+          <div class="health-row">
+            <div class="health-label">Disk Usage</div>
+            <div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill" style="width:41%"></div></div></div>
+            <div class="health-value">41%</div>
+          </div>
+          <div class="health-row">
+            <div class="health-label">Network In</div>
+            <div class="health-bar-wrap"></div>
+            <div class="health-value" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;">4.2 MB/s</div>
+          </div>
+          <div class="health-row">
+            <div class="health-label">Uptime</div>
+            <div class="health-bar-wrap"></div>
+            <div class="health-value" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;" id="health-uptime">02:14:38</div>
+          </div>
+          <div class="health-row">
+            <div class="health-label">Avg Ping (BD)</div>
+            <div class="health-bar-wrap"></div>
+            <div class="health-value" style="color:var(--emerald);font-family:'JetBrains Mono',monospace;font-size:0.75rem;">22ms</div>
+          </div>
+          <div class="health-row">
+            <div class="health-label">Registered Users</div>
+            <div class="health-bar-wrap"></div>
+            <div class="health-value">2,418</div>
+          </div>
+        </div>
+
+        <!-- Player Distribution -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🗺 Players by City</div>
+            <span style="font-size:0.72rem;color:var(--txt3);">47 online</span>
+          </div>
+          <div class="city-list">
+            <div class="city-row"><div class="city-name">Dhaka</div><div class="city-bar-wrap"><div class="city-bar"><div class="city-bar-fill" style="width:100%"></div></div></div><div class="city-count">18</div></div>
+            <div class="city-row"><div class="city-name">Chittagong</div><div class="city-bar-wrap"><div class="city-bar"><div class="city-bar-fill" style="width:66%"></div></div></div><div class="city-count">12</div></div>
+            <div class="city-row"><div class="city-name">Sylhet</div><div class="city-bar-wrap"><div class="city-bar"><div class="city-bar-fill" style="width:44%"></div></div></div><div class="city-count">8</div></div>
+            <div class="city-row"><div class="city-name">Rajshahi</div><div class="city-bar-wrap"><div class="city-bar"><div class="city-bar-fill" style="width:27%"></div></div></div><div class="city-count">5</div></div>
+            <div class="city-row"><div class="city-name">Khulna</div><div class="city-bar-wrap"><div class="city-bar"><div class="city-bar-fill" style="width:16%"></div></div></div><div class="city-count">3</div></div>
+            <div class="city-row"><div class="city-name">Other</div><div class="city-bar-wrap"><div class="city-bar"><div class="city-bar-fill" style="width:5%"></div></div></div><div class="city-count">1</div></div>
+          </div>
+          <div style="padding:0.875rem 1.125rem;border-top:1px solid var(--border);">
+            <div style="font-size:0.72rem;color:var(--txt3);margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.06em;">Rank Distribution (Active)</div>
+            <div class="rank-dist">
+              <div class="rank-dist-item">
+                <div class="rank-dist-num" style="color:var(--emerald);">76</div>
+                <div class="rank-dist-label">VIP</div>
+              </div>
+              <div class="rank-dist-item">
+                <div class="rank-dist-num" style="color:var(--gold);">91</div>
+                <div class="rank-dist-label">Premium</div>
+              </div>
+              <div class="rank-dist-item">
+                <div class="rank-dist-num" style="color:var(--diamond);">17</div>
+                <div class="rank-dist-label">Legend</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /overview -->
+
+    <!-- ══ PAYMENTS PAGE ══ -->
+    <div class="page" id="page-payments">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="page-heading">Payments</div>
+          <div class="page-sub">Review and approve bKash rank purchases</div>
+        </div>
+        <div class="page-header-actions">
+          <div class="search-bar"><span style="color:var(--txt3);">🔍</span><input placeholder="Search player or TXN…"></div>
+          <button class="btn btn-ghost">⬇ Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Summary chips -->
+      <div style="display:flex;gap:0.625rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <div style="background:var(--warning-g);border:1px solid rgba(255,165,2,0.2);border-radius:8px;padding:0.5rem 1rem;font-size:0.78rem;color:var(--warning);font-weight:600;">⏳ 3 Pending</div>
+        <div style="background:var(--emerald-g);border:1px solid rgba(0,230,118,0.2);border-radius:8px;padding:0.5rem 1rem;font-size:0.78rem;color:var(--emerald);font-weight:600;">✔ 91 Approved · ৳45,500</div>
+        <div style="background:var(--danger-g);border:1px solid rgba(255,71,87,0.2);border-radius:8px;padding:0.5rem 1rem;font-size:0.78rem;color:var(--danger);font-weight:600;">✕ 3 Rejected</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">💳 All Transactions</div>
+          <div style="display:flex;gap:0.5rem;">
+            <button style="background:var(--warning-g);border:1px solid rgba(255,165,2,0.2);border-radius:5px;color:var(--warning);padding:0.3rem 0.625rem;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Pending</button>
+            <button style="background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--txt3);padding:0.3rem 0.625rem;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;">All</button>
+          </div>
+        </div>
+        <div class="panel-body-flush">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Rank</th>
+                <th>Amount</th>
+                <th>TXN ID</th>
+                <th>Submitted</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>DragonKing_BD</strong><div style="font-size:0.7rem;color:var(--txt3);">Java · Chittagong</div></td>
+                <td><span class="badge badge-premium">Premium</span></td>
+                <td class="mono" style="color:var(--gold);">৳1,000</td>
+                <td class="mono">8847221</td>
+                <td>14 Jun · 10:44 PM</td>
+                <td><span class="badge badge-pending">Pending</span></td>
+                <td>
+                  <button class="row-action approve">✔ Approve</button>
+                  <button class="row-action reject">✕ Reject</button>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>FoxRunner</strong><div style="font-size:0.7rem;color:var(--txt3);">Bedrock · Dhaka</div></td>
+                <td><span class="badge badge-legend">Legend</span></td>
+                <td class="mono" style="color:var(--diamond);">৳2,000</td>
+                <td class="mono">8847212</td>
+                <td>14 Jun · 9:21 PM</td>
+                <td><span class="badge badge-pending">Pending</span></td>
+                <td>
+                  <button class="row-action approve">✔ Approve</button>
+                  <button class="row-action reject">✕ Reject</button>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>WhirlwindZ</strong><div style="font-size:0.7rem;color:var(--txt3);">Java · Sylhet</div></td>
+                <td><span class="badge badge-vip">VIP</span></td>
+                <td class="mono" style="color:var(--emerald);">৳500</td>
+                <td class="mono">8847198</td>
+                <td>14 Jun · 8:55 PM</td>
+                <td><span class="badge badge-pending">Pending</span></td>
+                <td>
+                  <button class="row-action approve">✔ Approve</button>
+                  <button class="row-action reject">✕ Reject</button>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>StormRaider</strong><div style="font-size:0.7rem;color:var(--txt3);">Java · Rajshahi</div></td>
+                <td><span class="badge badge-vip">VIP</span></td>
+                <td class="mono" style="color:var(--emerald);">৳500</td>
+                <td class="mono">8847181</td>
+                <td>14 Jun · 7:02 PM</td>
+                <td><span class="badge badge-approved">Approved</span></td>
+                <td><button class="row-action">👁 View</button></td>
+              </tr>
+              <tr>
+                <td><strong>MoonWatcher</strong><div style="font-size:0.7rem;color:var(--txt3);">Bedrock · Dhaka</div></td>
+                <td><span class="badge badge-premium">Premium</span></td>
+                <td class="mono" style="color:var(--gold);">৳1,000</td>
+                <td class="mono">8847174</td>
+                <td>13 Jun · 11:30 PM</td>
+                <td><span class="badge badge-approved">Approved</span></td>
+                <td><button class="row-action">👁 View</button></td>
+              </tr>
+              <tr>
+                <td><strong>TidalForce</strong><div style="font-size:0.7rem;color:var(--txt3);">Java · Khulna</div></td>
+                <td><span class="badge badge-legend">Legend</span></td>
+                <td class="mono" style="color:var(--diamond);">৳2,000</td>
+                <td class="mono">8847162</td>
+                <td>13 Jun · 9:15 PM</td>
+                <td><span class="badge badge-rejected">Rejected</span></td>
+                <td><button class="row-action">↩ Re-open</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ NEWS PAGE ══ -->
+    <div class="page" id="page-news">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="page-heading">News</div>
+          <div class="page-sub">Manage community news posts and announcements</div>
+        </div>
+        <div class="page-header-actions">
+          <button class="btn btn-primary">+ Create Post</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">📰 All Posts</div></div>
+        <table class="data-table">
+          <thead><tr><th>Title</th><th>Category</th><th>Author</th><th>Status</th><th>Views</th><th>Date</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><strong>Season 4 is Live — Nether Kingdoms Update</strong></td><td><span class="badge badge-vip">Patch</span></td><td>Admin_Hasan</td><td><span class="badge badge-online">Published</span></td><td>12.4k</td><td>Jun 1</td><td><button class="row-action">Edit</button><button class="row-action reject">Delete</button></td></tr>
+            <tr><td><strong>Guild War Championship — Registrations Open</strong></td><td><span class="badge badge-premium">Event</span></td><td>EventMaster_Rafi</td><td><span class="badge badge-online">Published</span></td><td>8.7k</td><td>May 28</td><td><button class="row-action">Edit</button><button class="row-action reject">Delete</button></td></tr>
+            <tr><td><strong>Anti-cheat v3.2 deployed</strong></td><td><span class="badge badge-info">Update</span></td><td>Admin_Hasan</td><td><span class="badge badge-online">Published</span></td><td>3.1k</td><td>May 22</td><td><button class="row-action">Edit</button><button class="row-action reject">Delete</button></td></tr>
+            <tr><td><strong>Builder Spotlight: NightWolf99's AzureHaven</strong></td><td><span class="badge badge-legend">Community</span></td><td>Staff_Nila</td><td><span class="badge badge-online">Published</span></td><td>5.6k</td><td>May 19</td><td><button class="row-action">Edit</button><button class="row-action reject">Delete</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ EVENTS PAGE ══ -->
+    <div class="page" id="page-events">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="page-heading">Events</div>
+          <div class="page-sub">Schedule and manage server events</div>
+        </div>
+        <div class="page-header-actions">
+          <button class="btn btn-primary">+ Create Event</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">🎉 All Events</div></div>
+        <table class="data-table">
+          <thead><tr><th>Event</th><th>Type</th><th>Dates</th><th>Status</th><th>Participants</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><strong>Guild War Championship S4</strong></td><td>Tournament</td><td>Jun 20</td><td><span class="badge badge-info">Upcoming</span></td><td>—</td><td><button class="row-action">Edit</button></td></tr>
+            <tr><td><strong>Underwater Kingdom Build Contest</strong></td><td>Build</td><td>Jun 1–15</td><td><span class="badge badge-live">Live</span></td><td>147</td><td><button class="row-action">Edit</button></td></tr>
+            <tr><td><strong>Summer Harvest Festival</strong></td><td>Seasonal</td><td>Jun 1–Jul 4</td><td><span class="badge badge-live">Live</span></td><td>312</td><td><button class="row-action">Edit</button></td></tr>
+            <tr><td><strong>The Nether Expedition</strong></td><td>Quest Chain</td><td>Jun 25+</td><td><span class="badge badge-info">Upcoming</span></td><td>—</td><td><button class="row-action">Edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ GENERIC PLACEHOLDER PAGES ══ -->
+    <div class="page" id="page-rules"><div class="page-header"><div class="page-header-left"><div class="page-heading">Rules</div><div class="page-sub">Manage server rules and community guidelines</div></div><div class="page-header-actions"><button class="btn btn-primary">+ Add Rule</button></div></div><div class="panel"><div class="panel-body"><div class="empty-state"><div class="empty-state-icon">🛡</div><div class="empty-state-text">Rules management coming soon</div></div></div></div></div>
+    <div class="page" id="page-votes"><div class="page-header"><div class="page-header-left"><div class="page-heading">Vote Sites</div><div class="page-sub">Manage voting partners and reward settings</div></div><div class="page-header-actions"><button class="btn btn-primary">+ Add Site</button></div></div><div class="panel"><div class="panel-body"><div class="empty-state"><div class="empty-state-icon">🗳</div><div class="empty-state-text">Vote site management coming soon</div></div></div></div></div>
+    <div class="page" id="page-hero"><div class="page-header"><div class="page-header-left"><div class="page-heading">Hero Slides</div><div class="page-sub">Manage homepage hero banner slides</div></div><div class="page-header-actions"><button class="btn btn-primary">+ Add Slide</button></div></div><div class="panel"><div class="panel-body"><div class="empty-state"><div class="empty-state-icon">🖼</div><div class="empty-state-text">Hero slide editor coming soon</div></div></div></div></div>
+
+    <!-- ══ SALES OVERVIEW PAGE ══ -->
+    <div class="page" id="page-sales">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="page-heading">Sales Overview</div>
+          <div class="page-sub">Revenue analytics for Season 4</div>
+        </div>
+        <div class="page-header-actions">
+          <button class="btn btn-ghost">⬇ Export</button>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-card" style="--kpi-color:var(--emerald);"><div class="kpi-header"><div class="kpi-label">Total Revenue</div><div class="kpi-icon">💰</div></div><div class="kpi-value colored" style="font-size:1.5rem;">৳48,500</div><div class="kpi-footer"><span class="kpi-delta up">↑12%</span><span>vs S3</span></div></div>
+        <div class="kpi-card" style="--kpi-color:var(--gold);"><div class="kpi-header"><div class="kpi-label">Avg Order Value</div><div class="kpi-icon">📈</div></div><div class="kpi-value colored" style="color:var(--gold);font-size:1.5rem;">৳973</div><div class="kpi-footer"><span class="kpi-delta up">↑8%</span><span>vs S3</span></div></div>
+        <div class="kpi-card" style="--kpi-color:var(--diamond);"><div class="kpi-header"><div class="kpi-label">Total Orders</div><div class="kpi-icon">🛒</div></div><div class="kpi-value" style="font-size:1.5rem;">97</div><div class="kpi-footer"><span class="kpi-delta up">+22</span><span>vs S3</span></div></div>
+        <div class="kpi-card" style="--kpi-color:var(--purple);"><div class="kpi-header"><div class="kpi-label">Conversion Rate</div><div class="kpi-icon">🎯</div></div><div class="kpi-value colored" style="color:var(--purple);font-size:1.5rem;">7.6%</div><div class="kpi-footer"><span class="kpi-delta up">↑1.2%</span><span>vs S3</span></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">📊 Monthly Revenue</div></div>
+        <div class="rev-chart">
+          <div class="rev-chart-area">
+            <div class="rev-bar" style="height:40%;background:linear-gradient(to top,rgba(255,215,0,0.15),rgba(255,215,0,0.3));" data-val="৳8,000"></div>
+            <div class="rev-bar" style="height:55%;background:linear-gradient(to top,rgba(255,215,0,0.15),rgba(255,215,0,0.3));" data-val="৳11,000"></div>
+            <div class="rev-bar" style="height:35%;background:linear-gradient(to top,rgba(255,215,0,0.15),rgba(255,215,0,0.3));" data-val="৳7,200"></div>
+            <div class="rev-bar" style="height:70%;background:linear-gradient(to top,rgba(255,215,0,0.15),rgba(255,215,0,0.3));" data-val="৳14,000"></div>
+            <div class="rev-bar" style="height:90%;background:linear-gradient(to top,rgba(0,230,118,0.15),rgba(0,230,118,0.35));border:1px solid rgba(0,230,118,0.3);" data-val="৳18,000"></div>
+            <div class="rev-bar" style="height:50%;background:linear-gradient(to top,rgba(255,215,0,0.08),rgba(255,215,0,0.15));border-style:dashed;" data-val="৳9,500 (proj)"></div>
+          </div>
+          <div class="rev-labels">
+            <div class="rev-label">Jan</div><div class="rev-label">Feb</div><div class="rev-label">Mar</div><div class="rev-label">Apr</div><div class="rev-label">May</div><div class="rev-label">Jun ›</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- More placeholders -->
+    <div class="page" id="page-ranks"><div class="page-header"><div class="page-header-left"><div class="page-heading">Ranks</div><div class="page-sub">Manage rank tiers, pricing, and permissions</div></div><div class="page-header-actions"><button class="btn btn-primary">+ Add Rank</button></div></div><div class="panel"><div class="panel-body"><div class="empty-state"><div class="empty-state-icon">⭐</div><div class="empty-state-text">Rank editor coming soon</div></div></div></div></div>
+    <div class="page" id="page-leaderboards"><div class="page-header"><div class="page-header-left"><div class="page-heading">Leaderboards</div><div class="page-sub">Manage seasons and reset scores</div></div></div><div class="panel"><div class="panel-body"><div class="empty-state"><div class="empty-state-icon">🏆</div><div class="empty-state-text">Leaderboard management coming soon</div></div></div></div></div>
+    <div class="page" id="page-products"><div class="page-header"><div class="page-header-left"><div class="page-heading">Product List</div><div class="page-sub">All shop products</div></div><div class="page-header-actions"><button class="btn btn-primary">+ Add Product</button></div></div><div class="panel"><div class="panel-body"><div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-text">Product manager coming soon</div></div></div></div></div>
+    <div class="page" id="page-orders"><div class="page-header"><div class="page-header-left"><div class="page-heading">Orders</div><div class="page-sub">All shop orders</div></div></div><div class="panel"><div class="panel-body"><div class="empty-state"><div class="empty-state-icon">🛒</div><div class="empty-state-text">Order management coming soon</div></div></div></div></div>
+    <div class="page" id="page-addproduct"><div class="page-header"><div class="page-header-left"><div class="page-heading">Add Product</div><div class="page-sub">Create a new shop item</div></div></div><div class="panel"><div class="panel-body"><div class="form-group"><label class="form-label">Product Name</label><input class="form-input" type="text" placeholder="e.g. VIP Rank 30 Days"></div><div class="form-group"><label class="form-label">Price (BDT)</label><input class="form-input" type="number" placeholder="500"></div><div class="form-group"><label class="form-label">Category</label><select class="form-input"><option>Rank</option><option>Cosmetic</option><option>Crate Key</option><option>Bundle</option></select></div><div class="form-group"><label class="form-label">Description</label><textarea class="form-input" placeholder="Describe this product…"></textarea></div><button class="btn btn-primary">Create Product</button></div></div></div>
+
+    <!-- ══ DIAGNOSTICS PAGE ══ -->
+    <div class="page" id="page-diagnostics">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="page-heading">Diagnostics</div>
+          <div class="page-sub">Server health and system checks</div>
+        </div>
+        <div class="page-header-actions">
+          <button class="btn btn-ghost">⟳ Re-run All</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">🖥 System Metrics</div></div>
+          <div class="health-row"><div class="health-label">CPU Load</div><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill" style="width:32%"></div></div></div><div class="health-value">32%</div></div>
+          <div class="health-row"><div class="health-label">RAM Usage</div><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill warn" style="width:67%"></div></div></div><div class="health-value" style="color:var(--warning);">67% / 16GB</div></div>
+          <div class="health-row"><div class="health-label">Disk Usage</div><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill" style="width:41%"></div></div></div><div class="health-value">41% / 500GB</div></div>
+          <div class="health-row"><div class="health-label">JVM Heap</div><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill" style="width:55%"></div></div></div><div class="health-value">5.5GB / 10GB</div></div>
+          <div class="health-row"><div class="health-label">TPS</div><div class="health-bar-wrap"></div><div class="health-value" style="color:var(--emerald);font-family:'JetBrains Mono',monospace;">19.8 / 20</div></div>
+          <div class="health-row"><div class="health-label">MSPT</div><div class="health-bar-wrap"></div><div class="health-value" style="font-family:'JetBrains Mono',monospace;">8.2ms</div></div>
+          <div class="health-row"><div class="health-label">World Size</div><div class="health-bar-wrap"></div><div class="health-value" style="font-family:'JetBrains Mono',monospace;">18.4 GB</div></div>
+          <div class="health-row"><div class="health-label">Loaded Chunks</div><div class="health-bar-wrap"></div><div class="health-value" style="font-family:'JetBrains Mono',monospace;">2,341</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">✅ Service Checks</div><span class="panel-action">All systems go</span></div>
+          <div style="padding:1.125rem;display:flex;flex-direction:column;gap:0.625rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.625rem 0.875rem;background:var(--emerald-g);border:1px solid rgba(0,230,118,0.15);border-radius:8px;"><span style="font-size:0.82rem;font-weight:600;">🌐 Game Server</span><span class="badge badge-online">Online</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.625rem 0.875rem;background:var(--emerald-g);border:1px solid rgba(0,230,118,0.15);border-radius:8px;"><span style="font-size:0.82rem;font-weight:600;">🗄 Database (MySQL)</span><span class="badge badge-online">Online</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.625rem 0.875rem;background:var(--emerald-g);border:1px solid rgba(0,230,118,0.15);border-radius:8px;"><span style="font-size:0.82rem;font-weight:600;">⚡ Redis Cache</span><span class="badge badge-online">Online</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.625rem 0.875rem;background:var(--emerald-g);border:1px solid rgba(0,230,118,0.15);border-radius:8px;"><span style="font-size:0.82rem;font-weight:600;">🛡 Anti-Cheat v3.2</span><span class="badge badge-online">Active</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.625rem 0.875rem;background:var(--warning-g);border:1px solid rgba(255,165,2,0.2);border-radius:8px;"><span style="font-size:0.82rem;font-weight:600;">💾 Backup Service</span><span class="badge badge-pending">Running</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.625rem 0.875rem;background:var(--emerald-g);border:1px solid rgba(0,230,118,0.15);border-radius:8px;"><span style="font-size:0.82rem;font-weight:600;">🌐 CDN / Web Server</span><span class="badge badge-online">Online</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.625rem 0.875rem;background:var(--emerald-g);border:1px solid rgba(0,230,118,0.15);border-radius:8px;"><span style="font-size:0.82rem;font-weight:600;">🔔 Discord Webhook</span><span class="badge badge-online">Connected</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.625rem 0.875rem;background:var(--emerald-g);border:1px solid rgba(0,230,118,0.15);border-radius:8px;"><span style="font-size:0.82rem;font-weight:600;">💳 bKash Payment API</span><span class="badge badge-online">Active</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BRAND / SEO / SOCIAL / USERS placeholders -->
+    <div class="page" id="page-social"><div class="page-header"><div class="page-header-left"><div class="page-heading">Social Links</div></div></div><div class="panel"><div class="panel-body"><div class="form-group"><label class="form-label">Discord</label><input class="form-input" type="text" placeholder="https://discord.gg/amzcraft" value="https://discord.gg/amzcraft"></div><div class="form-group"><label class="form-label">Facebook</label><input class="form-input" type="text" placeholder="https://fb.com/amzcraft"></div><div class="form-group"><label class="form-label">YouTube</label><input class="form-input" type="text" placeholder="https://youtube.com/@amzcraft"></div><div class="form-group"><label class="form-label">TikTok</label><input class="form-input" type="text" placeholder="https://tiktok.com/@amzcraft"></div><button class="btn btn-primary">Save Links</button></div></div></div>
+    <div class="page" id="page-brand"><div class="page-header"><div class="page-header-left"><div class="page-heading">Brand Settings</div></div></div><div class="panel"><div class="panel-body"><div class="form-group"><label class="form-label">Server Name</label><input class="form-input" type="text" value="AmzCraft"></div><div class="form-group"><label class="form-label">Tagline</label><input class="form-input" type="text" value="Build. Fight. Conquer."></div><div class="form-group"><label class="form-label">Primary Color</label><input class="form-input" type="text" value="#00e676"></div><div style="padding:1rem 0;border-top:1px solid var(--border);margin-top:0.5rem;"><div class="toggle-wrap"><div class="toggle-info"><div class="toggle-name">Maintenance Mode</div><div class="toggle-desc">Shows a maintenance message to all visitors</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div><div class="toggle-wrap"><div class="toggle-info"><div class="toggle-name">Registration Open</div><div class="toggle-desc">Allow new players to register accounts</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div></div><button class="btn btn-primary">Save Settings</button></div></div></div>
+    <div class="page" id="page-seo"><div class="page-header"><div class="page-header-left"><div class="page-heading">SEO Settings</div></div></div><div class="panel"><div class="panel-body"><div class="form-group"><label class="form-label">Page Title</label><input class="form-input" type="text" value="AmzCraft — Bangladesh's Best Minecraft Server"></div><div class="form-group"><label class="form-label">Meta Description</label><textarea class="form-input">AmzCraft is Bangladesh's premier Minecraft server with seasonal events, guild wars, ranked perks, and a community worth playing for.</textarea></div><div class="form-group"><label class="form-label">Keywords</label><input class="form-input" type="text" value="minecraft server bangladesh, amzcraft, mc server bd"></div><button class="btn btn-primary">Save SEO</button></div></div></div>
+    <div class="page" id="page-users"><div class="page-header"><div class="page-header-left"><div class="page-heading">Admin Users</div><div class="page-sub">Manage staff and admin accounts</div></div><div class="page-header-actions"><button class="btn btn-primary">+ Invite Admin</button></div></div><div class="panel"><table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Last Active</th><th></th></tr></thead><tbody><tr><td><strong>Hasan Admin</strong></td><td>admin@amzcraft.xyz</td><td><span class="badge badge-legend">Super Admin</span></td><td>Now</td><td></td></tr><tr><td><strong>EventMaster_Rafi</strong></td><td>rafi@amzcraft.xyz</td><td><span class="badge badge-premium">Event Manager</span></td><td>2h ago</td><td><button class="row-action reject">Remove</button></td></tr><tr><td><strong>Staff_Nila</strong></td><td>nila@amzcraft.xyz</td><td><span class="badge badge-vip">Moderator</span></td><td>5h ago</td><td><button class="row-action reject">Remove</button></td></tr><tr><td><strong>Dev_Tanvir</strong></td><td>tanvir@amzcraft.xyz</td><td><span class="badge badge-info">Developer</span></td><td>1d ago</td><td><button class="row-action reject">Remove</button></td></tr></tbody></table></div></div>
+
+  </div><!-- /content-scroll -->
+</div><!-- /main-wrap -->
+
+<script>
+// ── PAGE NAVIGATION ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  // Mark nav item active
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + id + "'")) {
+      n.classList.add('active');
+    }
+  });
+  // Update breadcrumb
+  const labels = {
+    overview:'Overview', payments:'Payments', news:'News', events:'Events',
+    rules:'Rules', votes:'Votes', hero:'Hero Slides', addproduct:'Add Product',
+    products:'Product List', orders:'Orders', sales:'Sales Overview',
+    ranks:'Ranks', leaderboards:'Leaderboards', social:'Social Links',
+    brand:'Brand Settings', seo:'SEO Settings', diagnostics:'Diagnostics', users:'Admin Users'
+  };
+  document.getElementById('breadcrumb-current').textContent = labels[id] || id;
+}
+
+// ── UPTIME COUNTER ──
+let uptimeSeconds = 7678; // 2h 7m 58s start
+setInterval(() => {
+  uptimeSeconds++;
+  const h = Math.floor(uptimeSeconds / 3600);
+  const m = Math.floor((uptimeSeconds % 3600) / 60);
+  const s = uptimeSeconds % 60;
+  const fmt = [h,m,s].map(n => String(n).padStart(2,'0')).join(':');
+  document.querySelectorAll('#uptimeDisplay, #health-uptime').forEach(el => {
+    if (el) el.textContent = fmt;
+  });
+}, 1000);
+
+// ── TOGGLE INTERACTIONS ──
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('on'));
+});
+
+// ── ROW ACTION FEEDBACK ──
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('approve')) {
+    const row = e.target.closest('tr');
+    const badge = row.querySelector('.badge-pending');
+    if (badge) { badge.className = 'badge badge-approved'; badge.textContent = '● Approved'; }
+    e.target.closest('td').innerHTML = '<button class="row-action">👁 View</button>';
+  }
+  if (e.target.classList.contains('reject') && e.target.closest('table')) {
+    const row = e.target.closest('tr');
+    const badge = row?.querySelector('.badge-pending');
+    if (badge) { badge.className = 'badge badge-rejected'; badge.textContent = '● Rejected'; }
+    if (e.target.closest('td') && e.target.textContent === '✕ Reject') {
+      e.target.closest('td').innerHTML = '<button class="row-action">↩ Re-open</button>';
+    }
+  }
+});
+</script>
+</body>
+</html>

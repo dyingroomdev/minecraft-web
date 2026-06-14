@@ -9,6 +9,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.enums import StackMode
+
 
 class RankProductRead(BaseModel):
     id: uuid.UUID
@@ -16,10 +18,19 @@ class RankProductRead(BaseModel):
     display_name: str
     price_bdt: Decimal
     duration_days: int | None
+    lp_group: str | None
+    stack_mode: StackMode
     description: str | None
     is_active: bool
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RankProductUpdate(BaseModel):
+    lp_group: str | None = Field(default=None, max_length=64)
+    stack_mode: StackMode = StackMode.SET
 
 
 class PaymentSubmitRequest(BaseModel):
@@ -35,6 +46,7 @@ class PaymentRequestRead(BaseModel):
     rank_product: RankProductRead
     mc_username: str
     mc_uuid: uuid.UUID | None
+    platform: str | None
     bkash_txid: str
     amount_bdt: Decimal
     screenshot_url: str | None
@@ -42,6 +54,9 @@ class PaymentRequestRead(BaseModel):
     rejection_reason: str | None
     created_at: datetime
     processed_at: datetime | None
+    fulfilled_at: datetime | None
+    fulfillment_status: str | None
+    fulfillment_log: str | None
 
     model_config = ConfigDict(from_attributes=True)
 

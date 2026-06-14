@@ -45,12 +45,10 @@ async def upload_media_file(
     except Exception as exc:  # pragma: no cover - defensive, file system errors
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to store file") from exc
 
-    # Return full URL instead of relative path
-    base_url = "http://localhost:8001"  # TODO: Make this configurable
-    url = f"{base_url}{settings.media_url_path.rstrip('/')}/{saved_name}"
+    # Return just the filename, not full URL
     return {
         "filename": saved_name,
-        "url": url,
+        "url": f"{settings.media_url_path.rstrip('/')}/{saved_name}",
         "content_type": file.content_type,
         "size": len(contents),
     }

@@ -95,10 +95,10 @@ curl -X GET http://localhost:8001/admin/diagnostics/ \
 - `apps/api/app/api/routes/admin_users.py`
 - `apps/api/manage.py`
 - `apps/api/tests/test_admin_rbac.py`
-- `apps/web/src/contexts/AdminContext.tsx`
-- `apps/web/src/components/pages/AdminLogin.tsx`
-- `apps/web/src/components/pages/AdminForbidden.tsx`
-- `apps/web/src/components/AdminRouteGuard.tsx`
+- `apps/admin/src/contexts/AdminContext.tsx`
+- `apps/admin/src/components/pages/AdminLogin.tsx`
+- `apps/admin/src/components/pages/AdminForbidden.tsx`
+- `apps/admin/src/components/AdminRouteGuard.tsx`
 - Alembic migrations
 
 ### Modified Files:

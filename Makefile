@@ -9,29 +9,32 @@ help: ## Show this help message
 install: ## Install dependencies for all apps
 	cd apps/api && pip install -e .[dev]
 	cd apps/worker && pip install -e .[dev]
-	cd apps/web && npm install
+	cd apps/frontend && npm install
+	cd apps/admin && npm install
 
 fmt: ## Format code
 	cd apps/api && ruff format .
 	cd apps/worker && ruff format .
-	cd apps/web && npm run format || true
+	cd apps/frontend && npm run format || true
+	cd apps/admin && npm run format || true
 
 lint: ## Lint code
 	cd apps/api && ruff check . && mypy .
 	cd apps/worker && ruff check . && mypy .
-	cd apps/web && npm run lint || true
+	cd apps/frontend && npm run lint || true
+	cd apps/admin && npm run lint || true
 
 test: ## Run all tests
 	cd apps/api && pytest
 	cd apps/worker && pytest
-	cd apps/web && npm run test:e2e
+	cd apps/frontend && npm run test:e2e
 
 test-unit: ## Run unit tests only
 	cd apps/api && pytest --ignore=tests/e2e
 	cd apps/worker && pytest
 
 test-e2e: ## Run E2E tests only
-	cd apps/web && npm run test:e2e
+	cd apps/frontend && npm run test:e2e
 
 up: ## Start all services
 	docker compose up --build -d
@@ -55,8 +58,11 @@ logs-api: ## Show API logs
 logs-worker: ## Show worker logs
 	docker compose logs -f worker
 
-logs-web: ## Show web logs
-	docker compose logs -f web
+logs-frontend: ## Show frontend logs
+	docker compose logs -f frontend
+
+logs-admin: ## Show admin dashboard logs
+	docker compose logs -f admin
 
 shell-api: ## Open shell in API container
 	docker compose exec api bash
@@ -76,7 +82,10 @@ dev-api: ## Run API in development mode
 dev-worker: ## Run worker in development mode
 	cd apps/worker && python -m worker.main
 
-dev-web: ## Run web in development mode
-	cd apps/web && npm run dev
+dev-frontend: ## Run public frontend and user dashboard
+	cd apps/frontend && npm run dev
+
+dev-admin: ## Run admin dashboard
+	cd apps/admin && npm run dev
 
 check: fmt lint test ## Run all checks (format, lint, test)

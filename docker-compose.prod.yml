@@ -1,0 +1,107 @@
+version: "3.9"
+
+networks:
+  proxy:
+    external: true
+  internal:
+    driver: bridge
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: amzcraft
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - internal
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.amzcraft-api.rule=Host(`api.amzcraft.top`)"
+      - "traefik.http.routers.amzcraft-api.entrypoints=websecure"
+      - "traefik.http.routers.amzcraft-api.tls=true"
+      - "traefik.http.routers.amzcraft-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.amzcraft-api.loadbalancer.server.port=8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    networks:
+      - internal
+
+  frontend:
+    build:
+      context: apps/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.amzcraft.top
+        VITE_WS_URL: wss://api.amzcraft.top
+    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.amzcraft-frontend.rule=Host(`amzcraft.top`) || Host(`www.amzcraft.top`)"
+      - "traefik.http.routers.amzcraft-frontend.entrypoints=websecure"
+      - "traefik.http.routers.amzcraft-frontend.tls=true"
+      - "traefik.http.routers.amzcraft-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.amzcraft-frontend.loadbalancer.server.port=80"
+      - "traefik.http.routers.amzcraft-frontend-http.rule=Host(`amzcraft.top`) || Host(`www.amzcraft.top`)"
+      - "traefik.http.routers.amzcraft-frontend-http.entrypoints=web"
+      - "traefik.http.routers.amzcraft-frontend-http.middlewares=https-redirect"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.permanent=true"
+
+  admin:
+    build:
+      context: apps/admin
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.amzcraft.top
+        VITE_WS_URL: wss://api.amzcraft.top
+    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.amzcraft-admin.rule=Host(`admin.amzcraft.top`)"
+      - "traefik.http.routers.amzcraft-admin.entrypoints=websecure"
+      - "traefik.http.routers.amzcraft-admin.tls=true"
+      - "traefik.http.routers.amzcraft-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.amzcraft-admin.loadbalancer.server.port=80"
+
+volumes:
+  db_data:

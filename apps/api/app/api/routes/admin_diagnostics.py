@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
 import httpx
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_admin_user, get_db_session, get_settings_dependency, require_admin
 from app.core.config import Settings
 from app.core.enums import AdminRole
-from app.db.models import AdminUser, User, AuditLog
+from app.db.models import AdminUser, User, AuditLog, PaymentRequest
 
 router = APIRouter(prefix="/admin/diagnostics")
 
@@ -137,15 +137,26 @@ async def check_rcon(settings: Settings) -> Dict[str, Any]:
     if not settings.minecraft_rcon_password:
         return {"ok": False, "latency_ms": 0}
 
-    # Skip RCON check for now - always return success if password is configured
-    return {"ok": True, "latency_ms": 45}
+    start_time = time.monotonic()
+    try:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(settings.minecraft_rcon_host, settings.minecraft_rcon_port),
+            timeout=3,
+        )
+        writer.close()
+        await writer.wait_closed()
+        return {"ok": True, "latency_ms": round((time.monotonic() - start_time) * 1000, 2)}
+    except Exception:
+        return {"ok": False, "latency_ms": 0}
 
 
 async def check_discord_webhook(settings: Settings) -> Dict[str, Any]:
-    """Check Discord webhook connectivity."""
+    """Check Discord API connectivity used by authentication and integrations."""
     start_time = time.monotonic()
     try:
-        await asyncio.sleep(0.045)  # Simulate network call
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{settings.discord_api_base.rstrip('/')}/gateway", timeout=5)
+            response.raise_for_status()
         latency_ms = round((time.monotonic() - start_time) * 1000, 2)
         return {"ok": True, "latency_ms": latency_ms}
     except Exception:
@@ -174,10 +185,19 @@ async def get_ops_metrics(session: AsyncSession) -> Dict[str, Any]:
             select(func.count(AuditLog.id)).where(AuditLog.created_at >= one_hour_ago)
         )
         audit_events_1h = audit_count_result.scalar() or 0
+        pending_result = await session.execute(
+            select(func.count(PaymentRequest.id)).where(PaymentRequest.status == "pending")
+        )
+        failed_result = await session.execute(
+            select(func.count(PaymentRequest.id)).where(
+                PaymentRequest.status == "failed",
+                PaymentRequest.created_at >= datetime.now(timezone.utc) - timedelta(hours=24),
+            )
+        )
         
         return {
-            "payments_pending": 7,  # Mock data
-            "payments_failed_24h": 1,
+            "payments_pending": pending_result.scalar() or 0,
+            "payments_failed_24h": failed_result.scalar() or 0,
             "fulfillment_dlq": 0,
             "last_expiry_job_utc": datetime.now(timezone.utc).isoformat(),
             "audit_events_1h": audit_events_1h

@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
 from pydantic import BaseModel, Field
 
 from app.core.config import DiscordOAuthConfig
-from app.core.enums import RBACRole, RBAC_DEFAULT_ROLE
+from app.core.enums import RBAC_DEFAULT_ROLE, RBACRole
 
 
 class DiscordTokenResponse(BaseModel):
@@ -25,6 +23,7 @@ class DiscordUser(BaseModel):
     global_name: str | None = None
     discriminator: str | None = None
     email: str | None = None
+    verified: bool = False
     avatar: str | None = None
 
     @property

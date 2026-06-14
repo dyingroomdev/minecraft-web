@@ -341,7 +341,8 @@ async def test_admin_retry_payment_enqueue(client, db_session, settings_override
         display_name="VIP",
         price_bdt=Decimal("500.00"),
         duration_days=None,
-        luckperms_group="vip",
+        lp_group="vip",
+        stack_mode="SET",
     )
     db_session.add(product)
     await db_session.flush()
@@ -383,7 +384,8 @@ async def test_admin_retry_payment_validates_status(client, db_session, settings
         display_name="MVP",
         price_bdt=Decimal("800.00"),
         duration_days=None,
-        luckperms_group="mvp",
+        lp_group="mvp",
+        stack_mode="SET",
     )
     db_session.add(product)
     await db_session.flush()
@@ -428,6 +430,63 @@ async def test_admin_audit_export_returns_csv(client, db_session, settings_overr
     assert response.headers["content-type"].startswith("text/csv")
     body = response.text
     assert "test_action" in body
+
+
+@pytest.mark.asyncio
+async def test_admin_rank_product_mapping_and_luckperms_sync(client, db_session, settings_override, monkeypatch):
+    admin_user, admin_token = await _issue_token_for_user(
+        db_session, settings_override, [RBACRole.ADMIN.value]
+    )
+    _, super_token = await _issue_token_for_user(
+        db_session, settings_override, [RBACRole.SUPER_ADMIN.value]
+    )
+
+    product = RankProduct(
+        rank_code="ELITE",
+        display_name="Elite",
+        price_bdt=Decimal("1200.00"),
+        duration_days=30,
+        lp_group=None,
+        stack_mode="SET",
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    response = await client.get(
+        "/admin/rank-products",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload[0]["rank_code"] == "ELITE"
+    assert payload[0]["lp_group"] is None
+
+    response = await client.patch(
+        f"/admin/rank-products/{product.id}",
+        headers={"Authorization": f"Bearer {super_token}"},
+        json={"lp_group": "elite", "stack_mode": "ADD"},
+    )
+    assert response.status_code == 200
+    assert response.json()["lp_group"] == "elite"
+    assert response.json()["stack_mode"] == "ADD"
+
+    settings_override.minecraft_rcon_password = "secret"
+
+    class _FakeLuckPermsService:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        async def list_groups(self) -> list[str]:
+            return ["default", "vip", "elite"]
+
+    monkeypatch.setattr("app.api.routes.admin_ranks.LuckPermsService", _FakeLuckPermsService)
+
+    response = await client.get(
+        "/admin/luckperms/groups",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+    assert response.json() == ["default", "vip", "elite"]
 
     export_audit = await db_session.execute(
         select(AuditLog).where(AuditLog.action == "audit_export")

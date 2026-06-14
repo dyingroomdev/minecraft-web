@@ -12,6 +12,7 @@ import structlog
 from worker.jobs import example_job, sync_discord_roles
 from worker.jobs.minecraft_poller import start_minecraft_poller
 from worker.jobs.fulfill_rank import process_fulfill_rank_queue, expire_ranks
+from worker.config import get_worker_settings
 
 logger = structlog.get_logger()
 
@@ -21,20 +22,28 @@ ROLE_SYNC_INTERVAL = timedelta(hours=24)
 async def run_worker(stop_event: asyncio.Event) -> None:
     """Continuously run background jobs until a shutdown signal is received."""
     logger.info("worker.startup")
+    settings = get_worker_settings()
     next_role_sync = datetime.now(timezone.utc)
     
     # Start background tasks
-    poller_task = asyncio.create_task(start_minecraft_poller())
-    fulfill_task = asyncio.create_task(process_fulfill_rank_queue())
+    background_tasks: list[asyncio.Task[None]] = []
+    if settings.enable_background_queues:
+        background_tasks = [
+            asyncio.create_task(start_minecraft_poller()),
+            asyncio.create_task(process_fulfill_rank_queue()),
+        ]
     
     try:
         while not stop_event.is_set():
             await example_job()
 
             current_time = datetime.now(timezone.utc)
-            if current_time >= next_role_sync:
-                await sync_discord_roles()
-                await expire_ranks()  # Run nightly with role sync
+            if settings.enable_maintenance_jobs and current_time >= next_role_sync:
+                try:
+                    await sync_discord_roles()
+                    await expire_ranks()  # Run nightly with role sync
+                except Exception as exc:
+                    logger.error("worker.maintenance_failed", error=str(exc))
                 next_role_sync = current_time + ROLE_SYNC_INTERVAL
 
             try:
@@ -42,11 +51,11 @@ async def run_worker(stop_event: asyncio.Event) -> None:
             except asyncio.TimeoutError:
                 continue
     finally:
-        poller_task.cancel()
-        fulfill_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await poller_task
-            await fulfill_task
+        for task in background_tasks:
+            task.cancel()
+        for task in background_tasks:
+            with suppress(asyncio.CancelledError):
+                await task
         logger.info("worker.shutdown")
 
 

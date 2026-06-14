@@ -10,7 +10,8 @@ from pydantic import BaseModel, ConfigDict
 
 class UserRead(BaseModel):
     id: uuid.UUID
-    discord_id: str
+    discord_id: str | None = None
+    google_id: str | None = None
     username: str
     email: str | None = None
     avatar: str | None = None

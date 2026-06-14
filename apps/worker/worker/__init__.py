@@ -6,7 +6,7 @@ import logging
 
 import structlog
 
-from .main import main, run_worker
+from .main import run_worker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,4 +27,4 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 
-__all__ = ["main", "run_worker"]
+__all__ = ["run_worker"]

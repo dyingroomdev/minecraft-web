@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* shadcn/ui CSS variables — AmzCraft dark theme */
+    --background: 0 0% 12%;
+    --foreground: 0 0% 100%;
+    --card: 240 3% 18%;
+    --card-foreground: 0 0% 100%;
+    --popover: 240 3% 18%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 157 100% 41%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3% 25%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 240 3% 18%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 48 100% 62%;
+    --accent-foreground: 0 0% 12%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 3% 25%;
+    --input: 240 3% 25%;
+    --ring: 157 100% 41%;
+    --radius: 0.75rem;
+  }
+
+  html, body, #root {
+    height: 100%;
+    background-color: theme('colors.bg');
+    color: theme('colors.on');
+    font-family: theme('fontFamily.sans');
+  }
+
+  h1, h2, h3, .heading {
+    font-family: theme('fontFamily.display');
+    @apply tracking-tight;
+  }
+
+  /* Minecraft-style scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: theme('colors.surface');
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.brand');
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.brand2');
+  }
+}

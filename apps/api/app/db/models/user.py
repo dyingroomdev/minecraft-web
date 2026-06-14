@@ -17,13 +17,15 @@ JSON_VARIANT = JSON().with_variant(JSONB(astext_type=Text()), "postgresql")
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Registered user retrieved via Discord OAuth."""
+    """Registered user with credentials and optional social identities."""
 
     __tablename__ = "users"
 
-    discord_id: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    discord_id: Mapped[str | None] = mapped_column(String(32), unique=True, index=True, nullable=True)
+    google_id: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     username: Mapped[str] = mapped_column(String(150))
-    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), unique=True, index=True, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
     roles: Mapped[list[str]] = mapped_column(JSON_VARIANT, default=list)
 
@@ -38,6 +40,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    cart_items: Mapped[list["CartItem"]] = relationship(
+        "CartItem", back_populates="user", cascade="all, delete-orphan"
+    )
+    orders: Mapped[list["Order"]] = relationship(
+        "Order", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -83,6 +91,7 @@ class AdminUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(128))
+    discord_id: Mapped[str | None] = mapped_column(String(32), unique=True, index=True, nullable=True)
     role: Mapped[str] = mapped_column(String(20), default="ADMIN")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

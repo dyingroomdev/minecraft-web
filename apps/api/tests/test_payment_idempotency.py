@@ -27,7 +27,8 @@ async def test_approve_payment_idempotency(client, settings_override):
             rank_code="vip",
             display_name="VIP Rank",
             price_bdt=Decimal("500.00"),
-            luckperms_group="vip",
+            lp_group="vip",
+            stack_mode="SET",
             is_active=True,
         )
         session.add(rank_product)

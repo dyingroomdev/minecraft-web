@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -61,6 +62,8 @@ class PaymentService:
         
         # Resolve Minecraft UUID
         mc_uuid = await self._resolve_minecraft_uuid(mc_username)
+        if mc_uuid is None:
+            mc_uuid = self._offline_uuid(mc_username)
         
         # Create payment request
         payment_request = PaymentRequest(
@@ -107,6 +110,9 @@ class PaymentService:
         payment.status = "approved"
         payment.processed_at = datetime.now(timezone.utc)
         payment.processed_by_user_id = admin_user_id
+        payment.fulfillment_status = "processing"
+        payment.fulfilled_at = None
+        payment.fulfillment_log = None
         
         await self.session.commit()
         await self._load_relationships(payment)
@@ -177,6 +183,18 @@ class PaymentService:
         result = await self.session.execute(stmt)
         player = result.scalar_one_or_none()
         return player.minecraft_uuid if player else None
+
+    def _offline_uuid(self, username: str) -> uuid.UUID:
+        """Generate an offline-mode UUID matching Mojang's algorithm."""
+
+        namespace = f"OfflinePlayer:{username}".encode("utf-8")
+        md5_hash = hashlib.md5(namespace).digest()
+        data = bytearray(md5_hash)
+        data[6] &= 0x0F
+        data[6] |= 0x30  # Version 3
+        data[8] &= 0x3F
+        data[8] |= 0x80  # Variant
+        return uuid.UUID(bytes=bytes(data))
     
     async def _get_payment_request(self, payment_id: uuid.UUID) -> PaymentRequest | None:
         """Get payment request by ID."""

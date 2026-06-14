@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
+import bcrypt
 from jose import JWTError, jwt
 from pydantic import BaseModel, Field
 
@@ -125,3 +126,18 @@ def verify_state(state: str, signature: str, secret: str) -> bool:
 
     expected = sign_state(state, secret)
     return hmac.compare_digest(signature, expected)
+
+
+def hash_password(password: str) -> str:
+    """Hash a password with bcrypt."""
+
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify a password without leaking comparison timing."""
+
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError:
+        return False

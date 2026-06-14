@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: amzcraft-worker
+Version: 0.1.0
+Summary: Asynchronous background worker for the monorepo
+Author: Amzcraft
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: backoff>=2.2.1
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.7.0
+Requires-Dist: pydantic-settings>=2.2.1
+Requires-Dist: redis>=5.0.4
+Requires-Dist: rcon>=1.6.6
+Requires-Dist: sqlalchemy[asyncio]>=2.0.30
+Requires-Dist: structlog>=24.1.0
+Provides-Extra: dev
+Requires-Dist: mypy>=1.10.0; extra == "dev"
+Requires-Dist: pytest>=8.2.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.6; extra == "dev"
+Requires-Dist: ruff>=0.5.0; extra == "dev"
+
+# AMZCraft Worker
+
+Asynchronous background worker that handles long-running jobs for the AMZCraft platform.
+
+## Local development
+
+Install dependencies and run the worker loop:
+
+```bash
+pip install -e .[dev]
+python -m worker.main
+```
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+## Scheduled jobs
+
+- `example_job` – sample heartbeat loop invoked every cycle.
+- `sync_discord_roles` – nightly stub that will eventually reconcile Discord guild roles to internal RBAC roles.

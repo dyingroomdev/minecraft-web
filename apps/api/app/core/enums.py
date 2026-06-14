@@ -21,4 +21,11 @@ class AdminRole(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
 
 
+class StackMode(str, Enum):
+    """Rank stacking behaviour for LuckPerms integration."""
+
+    SET = "SET"
+    ADD = "ADD"
+
+
 RBAC_DEFAULT_ROLE = RBACRole.PLAYER

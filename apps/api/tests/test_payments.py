@@ -18,7 +18,8 @@ async def test_submit_payment_success(client, settings_override):
             display_name="VIP Rank",
             price_bdt=Decimal("500.00"),
             duration_days=30,
-            luckperms_group="vip",
+            lp_group="vip",
+            stack_mode="SET",
             is_active=True,
         )
         session.add(rank_product)
@@ -48,7 +49,8 @@ async def test_submit_payment_duplicate_txid(client, settings_override):
             rank_code="vip",
             display_name="VIP Rank",
             price_bdt=Decimal("500.00"),
-            luckperms_group="vip",
+            lp_group="vip",
+            stack_mode="SET",
             is_active=True,
         )
         session.add(rank_product)
@@ -118,7 +120,8 @@ async def test_payment_price_tolerance(client, settings_override):
             rank_code="vip",
             display_name="VIP Rank",
             price_bdt=Decimal("500.00"),
-            luckperms_group="vip",
+            lp_group="vip",
+            stack_mode="SET",
             is_active=True,
         )
         session.add(rank_product)
@@ -146,7 +149,8 @@ async def test_get_payment_request_endpoint(client, settings_override):
             rank_code="vip",
             display_name="VIP Rank",
             price_bdt=Decimal("500.00"),
-            luckperms_group="vip",
+            lp_group="vip",
+            stack_mode="SET",
             is_active=True,
         )
         session.add(rank_product)
