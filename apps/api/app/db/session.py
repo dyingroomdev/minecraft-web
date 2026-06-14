@@ -12,7 +12,12 @@ from app.core.config import get_settings
 
 def _create_engine() -> AsyncEngine:
     settings = get_settings()
-    return create_async_engine(settings.database_url, future=True)
+    url = settings.database_url
+    if url.startswith(("postgresql://", "postgres://")):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1).replace(
+            "postgresql://", "postgresql+asyncpg://", 1
+        )
+    return create_async_engine(url, future=True)
 
 
 engine: AsyncEngine = _create_engine()
