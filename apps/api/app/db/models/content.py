@@ -188,7 +188,7 @@ class SocialLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "social_links"
 
     platform: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
-    url: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(String(512), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
@@ -199,7 +199,7 @@ class VoteLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     title: Mapped[str] = mapped_column(String(140), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    url: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(String(512), nullable=False)
     button_text: Mapped[str] = mapped_column(String(64), nullable=False, default="Vote")
     rewards: Mapped[list[str]] = mapped_column(JSON_VARIANT, default=list)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -225,10 +225,10 @@ class HeroSlide(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "hero_slides"
 
     title: Mapped[str] = mapped_column(String(140), nullable=False)
-    subtitle: Mapped[str | None] = mapped_column(String(280), nullable=True)
+    subtitle: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     button_text: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    button_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    button_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
