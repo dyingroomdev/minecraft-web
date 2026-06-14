@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     """Core settings for the FastAPI application."""
 
     database_url: str = Field(..., alias="DATABASE_URL")
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _force_asyncpg(cls, v: str) -> str:
+        if v.startswith(("postgresql://", "postgres://")):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
     redis_url: str = Field(..., alias="REDIS_URL")
     jwt_secret: str = Field(..., alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
