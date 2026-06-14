@@ -60,11 +60,11 @@ async def update_brand_settings(
         session.add(brand)
     
     # Update fields
-    update_data = payload.model_dump(exclude_unset=True)
+    update_data = payload.model_dump(mode='json', exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(brand, field):
             setattr(brand, field, value)
-    
+
     brand.updated_at = datetime.utcnow()
     await session.commit()
     await session.refresh(brand)
@@ -125,7 +125,7 @@ async def update_seo_settings(
         session.add(seo)
     
     # Update fields
-    update_data = payload.model_dump(exclude_unset=True)
+    update_data = payload.model_dump(mode='json', exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(seo, field):
             setattr(seo, field, value)
