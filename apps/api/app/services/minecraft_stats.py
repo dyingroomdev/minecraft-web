@@ -78,26 +78,31 @@ async def _balance_players(settings: Settings) -> list[tuple[str, float]]:
     return players
 
 
-async def _player_stats(settings: Settings, player: str, semaphore: asyncio.Semaphore) -> tuple[int, int, str]:
+async def _player_stats(settings: Settings, player: str, semaphore: asyncio.Semaphore) -> tuple[int, int, int, str]:
     async with semaphore:
         output = await _execute(
             settings,
             (
                 f"papi parse {player} "
-                "%statistic_player_kills%|%statistic_time_played%|%betterteams_name%"
+                "%statistic_player_kills%|%statistic_time_played%|%statistic_blocks_placed%|%betterteams_name%"
             ),
         )
 
     kills_raw, separator, remainder = output.partition("|")
-    playtime_raw, second_separator, team = remainder.partition("|")
-    if not separator or not second_separator:
-        return 0, 0, ""
+    playtime_raw, second_separator, remainder = remainder.partition("|")
+    blocks_raw, third_separator, team = remainder.partition("|")
+    if not separator or not second_separator or not third_separator:
+        return 0, 0, 0, ""
 
     try:
         kills = int(kills_raw.strip())
     except ValueError:
         kills = 0
-    return kills, _parse_playtime_seconds(playtime_raw), team.strip()
+    try:
+        blocks_placed = int(blocks_raw.strip().replace(",", ""))
+    except ValueError:
+        blocks_placed = 0
+    return kills, _parse_playtime_seconds(playtime_raw), blocks_placed, team.strip()
 
 
 async def _get_minecraft_data(settings: Settings) -> dict[str, Any]:
@@ -125,7 +130,7 @@ async def _get_minecraft_data(settings: Settings) -> dict[str, Any]:
         )
         teams = {
             team.casefold()
-            for _, _, team in results
+            for _, _, _, team in results
             if team and not team.startswith("%") and team.casefold() not in {"none", "no team"}
         }
         leaderboard = [
@@ -137,21 +142,23 @@ async def _get_minecraft_data(settings: Settings) -> dict[str, Any]:
                     "balance": balance,
                     "kills": kills,
                     "playtime": f"{playtime_seconds // 3600}h",
+                    "blocks_placed": blocks_placed,
                     "team": team if team and not team.startswith("%") else "",
                     "metric": "balance",
                 },
             }
-            for position, ((player, balance), (kills, playtime_seconds, team)) in enumerate(
+            for position, ((player, balance), (kills, playtime_seconds, blocks_placed, team)) in enumerate(
                 zip(players, results, strict=True),
                 start=1,
             )
         ]
         value = {
             "season_stats": {
-                "total_kills": sum(kills for kills, _, _ in results),
+                "total_kills": sum(kills for kills, _, _, _ in results),
+                "blocks_placed": sum(blocks for _, _, blocks, _ in results),
                 "unique_players": unique_players,
                 "active_teams": len(teams),
-                "total_playtime_hours": sum(seconds for _, seconds, _ in results) // 3600,
+                "total_playtime_hours": sum(seconds for _, seconds, _, _ in results) // 3600,
             },
             "leaderboard": leaderboard,
         }

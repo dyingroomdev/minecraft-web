@@ -27,6 +27,7 @@ from app.db.models import (
     NewsPost,
     Player,
     Rank,
+    RankProduct,
     Rule,
     ServerFeature,
     SocialLink,
@@ -313,6 +314,14 @@ async def get_minecraft_dashboard(
     player_stats = player_result.scalars().all()
     guild_result = await session.execute(select(func.count(Guild.id)))
     active_guilds = int(guild_result.scalar_one() or 0)
+    luckperms_rank_result = await session.execute(
+        select(func.count(func.distinct(RankProduct.lp_group))).where(
+            RankProduct.is_active.is_(True),
+            RankProduct.lp_group.is_not(None),
+            RankProduct.lp_group != "",
+        )
+    )
+    luckperms_rank_count = int(luckperms_rank_result.scalar_one() or 0)
 
     stored_stats = {
         "total_kills": sum(
@@ -339,12 +348,21 @@ async def get_minecraft_dashboard(
             "total_kills": stored_stats["total_kills"],
             "unique_players": len(player_stats),
             "active_teams": active_guilds,
+            "luckperms_ranks": luckperms_rank_count,
             "total_playtime_hours": sum(
                 _stat_value(stats or {}, ("playtime_hours", "total_playtime_hours"))
                 for stats in player_stats
             ),
         }
         live_leaderboard = []
+    else:
+        season_stats = {
+            **season_stats,
+            "luckperms_ranks": luckperms_rank_count,
+        }
+
+    if stored_stats["blocks_placed"] > 0:
+        season_stats["blocks_placed"] = stored_stats["blocks_placed"]
 
     activity_rows = await redis.lrange(ACTIVITY_KEY, 0, 9)
     live_activity = []

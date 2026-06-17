@@ -210,21 +210,36 @@ function Footer({ full = false, goPage, social, javaIp }: { full?: boolean; goPa
 }
 
 function Nav({ active, scrolled, goPage }: { active: PageName; scrolled: boolean; goPage: (page: PageName) => void }) {
+  const [open, setOpen] = useState(false);
+  const navigateAndClose = (next: PageName) => {
+    setOpen(false);
+    goPage(next);
+  };
+
   return (
     <nav id="mainNav" style={{ background: scrolled ? 'rgba(10,10,11,.99)' : 'rgba(10,10,11,.94)' }}>
-      <div className="nav-logo" onClick={() => goPage('home')}>
+      <div className="nav-logo" onClick={() => navigateAndClose('home')}>
         AMZ<span>CRAFT</span>
       </div>
-      <ul className="nav-links">
+      <ul className={`nav-links${open ? ' open' : ''}`}>
         {navItems.map((item) => (
           <li key={item.page}>
-            <button className={active === item.page ? 'active' : ''} onClick={() => goPage(item.page)}>
+            <button className={active === item.page ? 'active' : ''} onClick={() => navigateAndClose(item.page)}>
               {item.label}
             </button>
           </li>
         ))}
       </ul>
       <button className="btn btn-primary btn-sm">Login</button>
+      <button
+        className="nav-menu-toggle"
+        type="button"
+        aria-label={open ? 'Close navigation' : 'Open navigation'}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {open ? '×' : '☰'}
+      </button>
     </nav>
   );
 }
@@ -350,6 +365,11 @@ function rankTierInfo(rankCode: string) {
 function formatDuration(days: number | null): string {
   if (days === null) return '/ lifetime';
   return `/ ${days} days`;
+}
+
+function formatStatNumber(value: number | undefined | null): string {
+  if (value === null || value === undefined) return '—';
+  return value.toLocaleString();
 }
 
 const FALLBACK_MODES = [
@@ -495,11 +515,13 @@ function HomePage({ active, goPage, status, dashboard, activity, rankProducts, s
               <i className="fas fa-chart-bar card-icon" /><div className="card-title">Season 4 Live Stats</div>
               <div className="stats-inner">
                 <div>
-                  <div className="stat-row"><span className="stat-row-lbl">Player Kills</span><span className="stat-row-val">{seasonStats.total_kills ?? '—'}</span></div>
-                  <div className="stat-row"><span className="stat-row-lbl">Unique Players</span><span className="stat-row-val">{seasonStats.unique_players ?? '—'}</span></div>
+                  <div className="stat-row"><span className="stat-row-lbl">Player Kills</span><span className="stat-row-val">{formatStatNumber(seasonStats.total_kills)}</span></div>
+                  <div className="stat-row"><span className="stat-row-lbl">Unique Players</span><span className="stat-row-val">{formatStatNumber(seasonStats.unique_players)}</span></div>
+                  <div className="stat-row"><span className="stat-row-lbl">Blocks Placed</span><span className="stat-row-val">{formatStatNumber(seasonStats.blocks_placed)}</span></div>
                 </div>
                 <div>
-                  <div className="stat-row"><span className="stat-row-lbl">Active Teams</span><span className="stat-row-val">{seasonStats.active_teams ?? seasonStats.active_guilds ?? '—'}</span></div>
+                  <div className="stat-row"><span className="stat-row-lbl">Active Teams</span><span className="stat-row-val">{formatStatNumber(seasonStats.active_teams ?? seasonStats.active_guilds)}</span></div>
+                  <div className="stat-row"><span className="stat-row-lbl">LuckPerms Ranks</span><span className="stat-row-val">{formatStatNumber(seasonStats.luckperms_ranks)}</span></div>
                   <div className="stat-row"><span className="stat-row-lbl">Total Playtime</span><span className="stat-row-val">{seasonStats.total_playtime_hours != null ? `${seasonStats.total_playtime_hours}h` : '—'}</span></div>
                 </div>
               </div>
