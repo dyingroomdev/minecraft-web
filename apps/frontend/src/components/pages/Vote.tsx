@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ExternalLink, Gift, Loader2, Sparkles } from 'lucide-react';
+import { CalendarClock, ExternalLink, Gift, Loader2, Medal, Sparkles, Trophy } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,16 @@ export function Vote() {
     queryKey: ['vote-links'],
     queryFn: () => apiClient.getVoteLinks(),
   });
+  const {
+    data: topVoters,
+    isLoading: isTopVotersLoading,
+    error: topVotersError,
+  } = useQuery({
+    queryKey: ['top-voters', 'monthly-v2'],
+    queryFn: () => apiClient.getTopVoters(),
+    refetchInterval: 30_000,
+    staleTime: 0,
+  });
 
   const sortedLinks = useMemo(
     () =>
@@ -47,6 +57,10 @@ export function Vote() {
           return a.display_order - b.display_order;
         }),
     [links],
+  );
+  const sortedTopVoters = useMemo(
+    () => [...(topVoters?.entries ?? [])].sort((a, b) => b.votes - a.votes || a.position - b.position),
+    [topVoters?.entries],
   );
 
   return (
@@ -191,6 +205,64 @@ export function Vote() {
         <p className="mt-8 text-xs text-muted-foreground">Refreshing vote links…</p>
       ) : null}
 
+      <section className="mt-12">
+        <Card className="overflow-hidden border-border/70 bg-muted/30 shadow-sm">
+          <CardHeader className="flex flex-col gap-3 border-b border-border/70 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-400/10">
+                <Trophy className="h-5 w-5 text-lime-500" />
+              </span>
+              <div>
+                <CardTitle className="text-xl">Current month voters</CardTitle>
+                <p className="text-sm text-muted-foreground">Updated daily from the in-game `/vote Top Monthly` leaderboard.</p>
+              </div>
+            </div>
+            {topVoters?.updated_at ? (
+              <Badge variant="outline" className="w-fit gap-2">
+                <CalendarClock className="h-3.5 w-3.5" />
+                {new Date(topVoters.updated_at).toLocaleDateString()}
+              </Badge>
+            ) : null}
+          </CardHeader>
+          <CardContent className="p-0">
+            {isTopVotersLoading ? (
+              <div className="flex items-center gap-3 p-6 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading current month voters...
+              </div>
+            ) : topVotersError ? (
+              <div className="p-6 text-sm text-destructive">
+                Unable to load current month voters. Please try again later.
+              </div>
+            ) : sortedTopVoters.length === 0 ? (
+              <div className="p-6 text-sm text-muted-foreground">
+                Current month voters will appear after the next daily `/vote Top Monthly` sync.
+              </div>
+            ) : (
+              <div className="divide-y divide-border/70">
+                {sortedTopVoters.map((entry, index) => (
+                  <div
+                    key={`${entry.position}-${entry.player}`}
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-6 py-4"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-background font-semibold">
+                      {index < 3 ? <Medal className="h-4 w-4 text-amber-400" /> : index + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{entry.player}</p>
+                      <p className="text-xs text-muted-foreground">Rank #{index + 1}</p>
+                    </div>
+                    <Badge variant="secondary" className="whitespace-nowrap">
+                      {entry.votes.toLocaleString()} votes
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
       <section className="mt-16 grid gap-6 lg:grid-cols-3">
         <Card className="border-border/70 bg-muted/40">
           <CardHeader className="flex items-center gap-3">
@@ -206,11 +278,11 @@ export function Vote() {
         <Card className="border-border/70 bg-muted/40">
           <CardHeader className="flex items-center gap-3">
             <img src={INFO_GIFS.streak} alt="Sparkling diamond" className="h-10 w-10" />
-            <CardTitle className="text-lg font-semibold">Daily streak bonus</CardTitle>
+            <CardTitle className="text-lg font-semibold">Current month top</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>Vote on every site each day to build your streak.</p>
-            <p>Hit milestones for +extra keys and shiny cosmetics!</p>
+            <p>The current month voter list refreshes once per day from the server.</p>
+            <p>Keep voting daily to climb the leaderboard.</p>
           </CardContent>
         </Card>
         <Card className="border-border/70 bg-muted/40">

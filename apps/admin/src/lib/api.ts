@@ -16,6 +16,7 @@ import {
   RuleSchema,
   ServerFeatureSchema,
   SocialLinksSchema,
+  TopVotersSchema,
   UserSchema,
   VoteLinkSchema,
 } from './types';
@@ -35,6 +36,7 @@ import type {
   ServerFeature,
   ServerStatus,
   SocialLinks,
+  TopVoters,
   User,
   VoteLink,
 } from './types';
@@ -65,6 +67,7 @@ export type ContactRequest = {
 const ABSOLUTE_URL_PATTERN = /^https?:\/\//i;
 const DEFAULT_API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const DEFAULT_WS_BASE = import.meta.env.VITE_WS_URL ?? null;
+const PRODUCTION_API_BASE = 'https://api.amzcraft.top';
 
 class ApiClient {
   private token: string | null = null;
@@ -108,6 +111,23 @@ class ApiClient {
 
   async getVoteLinks(): Promise<VoteLink[]> {
     return this.request('/api/votes', undefined, z.array(VoteLinkSchema));
+  }
+
+  async getTopVoters(): Promise<TopVoters> {
+    let primary: TopVoters | null = null;
+    try {
+      primary = await this.request('/api/votes/top', undefined, TopVotersSchema);
+      if (primary.entries.length > 0 || this.baseUrl === PRODUCTION_API_BASE) {
+        return primary;
+      }
+    } catch (error) {
+      if (this.baseUrl === PRODUCTION_API_BASE) {
+        throw error;
+      }
+    }
+
+    const fallback = await this.request(`${PRODUCTION_API_BASE}/api/votes/top`, undefined, TopVotersSchema);
+    return fallback.entries.length > 0 || primary === null ? fallback : primary;
   }
 
   async getEvents(): Promise<Event[]> {

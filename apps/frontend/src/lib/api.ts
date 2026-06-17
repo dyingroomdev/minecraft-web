@@ -16,6 +16,7 @@ import {
   RuleSchema,
   ServerFeatureSchema,
   SocialLinksSchema,
+  TopVotersSchema,
   UserSchema,
   VoteLinkSchema,
 } from './types';
@@ -35,6 +36,7 @@ import type {
   ServerFeature,
   ServerStatus,
   SocialLinks,
+  TopVoters,
   User,
   VoteLink,
 } from './types';
@@ -52,6 +54,7 @@ type PaymentRetryResponse = z.infer<typeof PaymentRetryResponseSchema>;
 const ABSOLUTE_URL_PATTERN = /^https?:\/\//i;
 const DEFAULT_API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const DEFAULT_WS_BASE = import.meta.env.VITE_WS_URL ?? null;
+const PRODUCTION_API_BASE = 'https://api.amzcraft.top';
 
 class ApiClient {
   private token: string | null = null;
@@ -95,6 +98,23 @@ class ApiClient {
 
   async getVoteLinks(): Promise<VoteLink[]> {
     return this.request('/api/votes', undefined, z.array(VoteLinkSchema));
+  }
+
+  async getTopVoters(): Promise<TopVoters> {
+    let primary: TopVoters | null = null;
+    try {
+      primary = await this.request('/api/votes/top', undefined, TopVotersSchema);
+      if (primary.entries.length > 0 || this.baseUrl === PRODUCTION_API_BASE) {
+        return primary;
+      }
+    } catch (error) {
+      if (this.baseUrl === PRODUCTION_API_BASE) {
+        throw error;
+      }
+    }
+
+    const fallback = await this.request(`${PRODUCTION_API_BASE}/api/votes/top`, undefined, TopVotersSchema);
+    return fallback.entries.length > 0 || primary === null ? fallback : primary;
   }
 
   async getEvents(): Promise<Event[]> {
@@ -382,6 +402,18 @@ class ApiClient {
     );
   }
 
+  async getPublicFeatures(): Promise<ServerFeature[]> {
+    return this.request('/api/features', undefined, z.array(ServerFeatureSchema));
+  }
+
+  async getMinecraftDashboard(): Promise<any> {
+    return this.request('/api/minecraft/dashboard');
+  }
+
+  async getDiscordWidget(): Promise<any> {
+    return this.request('/api/discord/widget');
+  }
+
   async getServerStatusForAdmin(): Promise<ServerStatus> {
     return this.getServerStatus();
   }
@@ -435,6 +467,21 @@ class ApiClient {
 
   async getPaymentsPublicStatus(id: string): Promise<PaymentRequest> {
     return this.getPaymentRequest(id);
+  }
+
+  async submitContact(payload: {
+    request_type: 'ban_appeal' | 'bug_report' | 'staff_application' | 'contact';
+    name: string;
+    email: string;
+    minecraft_username?: string | null;
+    subject: string;
+    message: string;
+  }): Promise<{ id: string; status: string }> {
+    return this.request('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
   }
 
   async requestRaw(path: string, init: RequestInit = {}): Promise<unknown> {
@@ -529,6 +576,32 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient(DEFAULT_API_BASE);
+
+export function connectGameWS(handlers: {
+  onStatus?: (status: any) => void;
+  onActivity?: (event: any) => void;
+}) {
+  const wsUrl = DEFAULT_WS_BASE
+    ? DEFAULT_WS_BASE
+    : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
+  const socket = new WebSocket(`${wsUrl.replace(/\/$/, '')}/ws/status`);
+
+  socket.onmessage = (event) => {
+    try {
+      const parsed = JSON.parse(event.data as string);
+      if (parsed?.type === 'server_status') {
+        const payload = parsed?.payload ?? parsed?.data ?? parsed;
+        handlers.onStatus?.(payload);
+      } else if (parsed?.type === 'minecraft_activity') {
+        handlers.onActivity?.(parsed?.payload ?? parsed);
+      }
+    } catch {
+      // ignore malformed messages
+    }
+  };
+
+  return socket;
+}
 
 export function connectStatusWS(onMessage: (status: ServerStatus) => void) {
   const wsUrl = DEFAULT_WS_BASE

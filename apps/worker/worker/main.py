@@ -9,14 +9,16 @@ from datetime import datetime, timedelta, timezone
 
 import structlog
 
-from worker.jobs import example_job, sync_discord_roles
-from worker.jobs.minecraft_poller import start_minecraft_poller
-from worker.jobs.fulfill_rank import process_fulfill_rank_queue, expire_ranks
 from worker.config import get_worker_settings
+from worker.jobs import example_job, sync_discord_roles
+from worker.jobs.fulfill_rank import expire_ranks, process_fulfill_rank_queue
+from worker.jobs.minecraft_poller import start_minecraft_poller
+from worker.jobs.sync_vote_top import sync_vote_top
 
 logger = structlog.get_logger()
 
 ROLE_SYNC_INTERVAL = timedelta(hours=24)
+VOTE_TOP_SYNC_INTERVAL = timedelta(hours=6)
 
 
 async def run_worker(stop_event: asyncio.Event) -> None:
@@ -24,6 +26,7 @@ async def run_worker(stop_event: asyncio.Event) -> None:
     logger.info("worker.startup")
     settings = get_worker_settings()
     next_role_sync = datetime.now(timezone.utc)
+    next_vote_top_sync = datetime.now(timezone.utc)
     
     # Start background tasks
     background_tasks: list[asyncio.Task[None]] = []
@@ -45,6 +48,13 @@ async def run_worker(stop_event: asyncio.Event) -> None:
                 except Exception as exc:
                     logger.error("worker.maintenance_failed", error=str(exc))
                 next_role_sync = current_time + ROLE_SYNC_INTERVAL
+
+            if settings.enable_maintenance_jobs and current_time >= next_vote_top_sync:
+                try:
+                    await sync_vote_top()
+                except Exception as exc:
+                    logger.error("worker.vote_top_sync_failed", error=str(exc))
+                next_vote_top_sync = current_time + VOTE_TOP_SYNC_INTERVAL
 
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=5)

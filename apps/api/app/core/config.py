@@ -112,7 +112,14 @@ class Settings(BaseSettings):
     mcsrv_base: str = Field(default="https://api.mcsrvstat.us", alias="MCSRV_BASE")
     status_ttl_seconds: int = Field(default=12, alias="STATUS_TTL_SECONDS")
     cors_allowed_origins: list[str] = Field(
-        default=["http://localhost:5173", "http://localhost:3000"],
+        default=[
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:3000",
+            "https://amzcraft.top",
+            "https://www.amzcraft.top",
+            "https://admin.amzcraft.top",
+        ],
         alias="CORS_ALLOWED_ORIGINS",
     )
     trusted_hosts: list[str] = Field(

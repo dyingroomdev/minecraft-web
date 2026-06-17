@@ -4,36 +4,41 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import httpx
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
-from sqlalchemy import Select, desc, func, select
+from rcon.source import Client
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db_session, get_http_client, get_redis, get_settings
+from app.core.config import Settings
 from app.db.models import (
     Guild,
     GuildMember,
+    HeroSlide,
     Leaderboard,
     NewsPost,
     Player,
     Rank,
     Rule,
-    ServerStatus,
+    ServerFeature,
     SocialLink,
     Ticket,
     VoteLink,
-    HeroSlide,
-    ServerFeature,
 )
+from app.db.models.content import Event
 from app.schemas.content import (
     ContactRequestCreate,
     ContactRequestRead,
     EventRead,
+    HeroSlideRead,
     LeaderboardRead,
     MinecraftDashboardRead,
     NewsDetail,
@@ -42,25 +47,37 @@ from app.schemas.content import (
     PlayerRank,
     PlayerRead,
     RuleRead,
+    ServerFeatureRead,
     ServerStatusRead,
     SocialLinksRead,
+    TopVoterEntry,
+    TopVotersRead,
     VoteLinkRead,
-    HeroSlideRead,
-    ServerFeatureRead,
 )
-from app.db.models.content import Event
 from app.services import leaderboard_cache
 from app.services.minecraft_stats import get_minecraft_leaderboard, get_minecraft_season_stats
-from app.services.status_service import build_snapshot
 from app.services.status_poller import ACTIVITY_KEY
-from app.core.config import Settings
-import redis.asyncio as aioredis
+from app.services.status_service import build_snapshot
 
 router = APIRouter(prefix="/api")
 
 
 STATUS_KEY = "amz:status:snapshot"
 STATUS_CH = "amz:status:channel"
+VOTE_TOP_COMMAND = "vote Top Monthly 1"
+DISPLAY_VOTE_TOP_COMMAND = "/vote Top Monthly"
+TOP_MONTH_PLACEHOLDER = "%votingplugin_top_month_{position}%"
+VOTE_TOTAL_PLACEHOLDER = "%votingplugin_total%"
+MAX_TOP_VOTERS = 10
+NON_PLAYER_TOKENS = {"page", "top", "voters", "monthly", "all", "current", "previous", "lastmonthtop"}
+RANKED_LINE_RE = re.compile(
+    r"^\s*(?:#?(?P<position>\d+)[.):]\s*)?"
+    r"(?P<player>[A-Za-z0-9_]{1,32})"
+    r"(?:.*?\bvotes?\s*[:=]?\s*|(?:\s*[-,:|]\s*|\s+))"
+    r"(?P<votes>\d[\d,]*)"
+    r"(?:\s+votes?)?\s*$",
+    re.IGNORECASE,
+)
 
 
 @router.get("/discord/widget")
@@ -469,6 +486,272 @@ async def list_vote_links(session: AsyncSession = Depends(get_db_session)) -> li
     )
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+@router.get("/votes/top", response_model=TopVotersRead)
+async def get_top_voters(
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings),
+) -> TopVotersRead:
+    stmt = select(Leaderboard).where(
+        Leaderboard.season == "live",
+        Leaderboard.leaderboard_type == "votes",
+    )
+    result = await session.execute(stmt)
+    leaderboard = result.scalar_one_or_none()
+    if (
+        leaderboard is None
+        or not leaderboard.entries
+        or _entries_need_vote_counts(leaderboard.entries, leaderboard.updated_at)
+    ):
+        prev_votes: dict[str, int] = {}
+        if leaderboard and leaderboard.entries:
+            for _e in leaderboard.entries:
+                if isinstance(_e, dict) and int(_e.get("votes", 0) or 0) > 0:
+                    prev_votes[str(_e.get("player", "")).lower()] = int(_e["votes"])
+        live_entries, raw_response = await _fetch_live_top_voters(settings, prev_votes)
+        if live_entries:
+            now = datetime.now(timezone.utc)
+            metadata = {
+                "source": "rcon",
+                "command": VOTE_TOP_COMMAND,
+                "display_command": DISPLAY_VOTE_TOP_COMMAND,
+                "raw_response": raw_response,
+                "synced_at": now.isoformat(),
+            }
+            if leaderboard is None:
+                leaderboard = Leaderboard(
+                    season="live",
+                    leaderboard_type="votes",
+                    title="Current Month Top Voters",
+                    entries=live_entries,
+                    meta_data=metadata,
+                )
+                session.add(leaderboard)
+            else:
+                leaderboard.title = "Current Month Top Voters"
+                leaderboard.entries = live_entries
+                leaderboard.meta_data = metadata
+                leaderboard.updated_at = now
+            await session.commit()
+            await session.refresh(leaderboard)
+        elif leaderboard is None:
+            return TopVotersRead()
+
+    normalized_entries = sorted(
+        [e for e in (leaderboard.entries or []) if isinstance(e, dict)],
+        key=lambda e: int(e.get("position", 999)),
+    )
+    entries: list[TopVoterEntry] = []
+    for row in normalized_entries:
+        if not isinstance(row, dict):
+            continue
+        player = str(row.get("player") or row.get("name") or "").strip()
+        if not player:
+            continue
+        raw_votes = row.get("votes", row.get("score", 0))
+        try:
+            votes = int(float(str(raw_votes).replace(",", "")))
+        except (TypeError, ValueError):
+            votes = 0
+        raw_position = row.get("position", len(entries) + 1)
+        try:
+            position = int(raw_position)
+        except (TypeError, ValueError):
+            position = index
+        metadata = row.get("metadata")
+        entries.append(
+            TopVoterEntry(
+                position=position,
+                player=player,
+                votes=votes,
+                metadata=metadata if isinstance(metadata, dict) else {},
+            )
+        )
+
+    return TopVotersRead(updated_at=leaderboard.updated_at, entries=entries)
+
+
+async def _fetch_live_top_voters(
+    settings: Settings, prev_votes: dict[str, int] | None = None
+) -> tuple[list[dict], str]:
+    if not settings.minecraft_rcon_password:
+        return [], "missing_rcon_password"
+    try:
+        return await asyncio.to_thread(
+            _fetch_live_top_voters_sync,
+            settings.minecraft_rcon_host,
+            settings.minecraft_rcon_port,
+            settings.minecraft_rcon_password,
+            prev_votes or {},
+        )
+    except Exception as exc:
+        return [], f"rcon_error: {exc}"
+
+
+def _parse_vote_top_direct(response: str) -> list[dict]:
+    entries: list[dict] = []
+    seen_players: set[str] = set()
+    for line in response.splitlines():
+        cleaned = _strip_minecraft_formatting(line)
+        if not cleaned:
+            continue
+        match = RANKED_LINE_RE.match(cleaned)
+        if not match:
+            continue
+        player = match.group("player")
+        if player.lower() in NON_PLAYER_TOKENS or player.lower() in seen_players:
+            continue
+        seen_players.add(player.lower())
+        votes = int(match.group("votes").replace(",", ""))
+        raw_position = match.group("position")
+        position = int(raw_position) if raw_position else len(entries) + 1
+        entries.append({
+            "position": position,
+            "player": player,
+            "score": votes,
+            "votes": votes,
+            "metadata": {"source": "rcon", "command": DISPLAY_VOTE_TOP_COMMAND},
+        })
+    return _rank_vote_entries(entries)
+
+
+def _fetch_live_top_voters_sync(
+    host: str, port: int, password: str, prev_votes: dict[str, int] | None = None
+) -> tuple[list[dict], str]:
+    raw_parts: list[str] = []
+    with Client(host, port, passwd=password, timeout=15) as client:
+        command_response = client.run(VOTE_TOP_COMMAND) or ""
+        raw_parts.append(f"{VOTE_TOP_COMMAND}: {command_response}")
+        entries = _parse_vote_top_direct(command_response)
+        if entries:
+            return entries, "\n".join(raw_parts)
+        list_response = client.run("list") or ""
+        raw_parts.append(f"list: {list_response}")
+        players = _parse_online_players(list_response)
+        if not players:
+            return [], "\n".join(raw_parts)
+
+        parse_player = players[0]
+        entries: list[dict] = []
+        seen_players: set[str] = set()
+        for position in range(1, MAX_TOP_VOTERS + 1):
+            placeholder = TOP_MONTH_PLACEHOLDER.format(position=position)
+            response = client.run(f"papi parse {parse_player} {placeholder}") or ""
+            raw_parts.append(f"{placeholder}: {response}")
+            player = _strip_minecraft_formatting(response)
+            if not _is_valid_player_name(player) or player.lower() in seen_players:
+                continue
+            seen_players.add(player.lower())
+            vote_count, vote_count_response = _fetch_player_vote_count(client, player)
+            raw_parts.append(f"{player} {VOTE_TOTAL_PLACEHOLDER}: {vote_count_response}")
+            is_live = vote_count > 0
+            if not is_live and prev_votes and player.lower() in prev_votes:
+                vote_count = prev_votes[player.lower()]
+            entries.append(
+                {
+                    "position": position,
+                    "player": player,
+                    "score": vote_count,
+                    "votes": vote_count,
+                    "metadata": {
+                        "source": "placeholderapi",
+                        "command": DISPLAY_VOTE_TOP_COMMAND,
+                        "placeholder": placeholder,
+                        "vote_count_placeholder": VOTE_TOTAL_PLACEHOLDER,
+                        "votes_available": is_live or (bool(prev_votes) and player.lower() in prev_votes),
+                    },
+                }
+            )
+
+        entries.sort(key=lambda e: e.get("position", MAX_TOP_VOTERS + 1))
+        for idx, e in enumerate(entries, 1):
+            e["position"] = idx
+        return entries, "\n".join(raw_parts)
+
+
+def _rank_vote_entries(entries: object) -> list[dict]:
+    if not isinstance(entries, list):
+        return []
+    ranked_entries = sorted(
+        [entry for entry in entries if isinstance(entry, dict)],
+        key=lambda item: (
+            -_safe_vote_value(item.get("votes", item.get("score", 0))),
+            _safe_vote_value(item.get("position", MAX_TOP_VOTERS + 1)),
+            str(item.get("player", item.get("name", ""))).lower(),
+        ),
+    )
+    for position, entry in enumerate(ranked_entries, start=1):
+        entry["position"] = position
+    return ranked_entries
+
+
+def _entries_need_vote_counts(entries: object, updated_at: datetime | None) -> bool:
+    if not isinstance(entries, list) or not entries:
+        return False
+    if updated_at is None:
+        return True
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    if updated_at.date() < now.date():
+        return True
+    if (now - updated_at).total_seconds() > 6 * 3600:
+        return True
+    for row in entries:
+        if not isinstance(row, dict):
+            continue
+        metadata = row.get("metadata")
+        if isinstance(metadata, dict) and metadata.get("votes_available") is False:
+            return True
+    return all(
+        int(_safe_vote_value(row.get("votes", row.get("score", 0)))) <= 0
+        for row in entries
+        if isinstance(row, dict)
+    )
+
+
+def _fetch_player_vote_count(client: Client, player: str) -> tuple[int, str]:
+    response = client.run(f"papi parse {player} {VOTE_TOTAL_PLACEHOLDER}") or ""
+    return _parse_vote_count(response), response
+
+
+def _parse_vote_count(response: str) -> int:
+    cleaned = _strip_minecraft_formatting(response)
+    match = re.search(r"\d[\d,]*", cleaned)
+    if not match:
+        return 0
+    return int(match.group(0).replace(",", ""))
+
+
+def _safe_vote_value(value: object) -> int:
+    try:
+        return int(float(str(value).replace(",", "")))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _parse_online_players(response: str) -> list[str]:
+    cleaned = _strip_minecraft_formatting(response)
+    if ":" not in cleaned:
+        return []
+    _, players_text = cleaned.rsplit(":", 1)
+    return [
+        player.strip()
+        for player in players_text.split(",")
+        if _is_valid_player_name(player.strip())
+    ]
+
+
+def _is_valid_player_name(value: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z0-9_]{1,32}", value)) and value.lower() not in NON_PLAYER_TOKENS
+
+
+def _strip_minecraft_formatting(value: str) -> str:
+    without_hex_codes = re.sub(r"(?:§x|&x)(?:(?:§|&)[0-9A-Fa-f]){6}", "", value)
+    without_codes = re.sub(r"(?:§|&)[0-9A-FK-ORa-fk-or]", "", without_hex_codes)
+    without_brackets = re.sub(r"^[^\w#]+|[^\w]+$", "", without_codes)
+    return re.sub(r"\s+", " ", without_brackets).strip()
 
 
 @router.get("/hero-slides", response_model=list[HeroSlideRead])

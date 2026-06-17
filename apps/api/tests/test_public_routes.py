@@ -7,16 +7,16 @@ from app.db.models import (
     Event,
     Guild,
     GuildMember,
+    HeroSlide,
     Leaderboard,
     NewsPost,
     Player,
     Rank,
     Rule,
+    ServerFeature,
     ServerStatus,
     SocialLink,
     VoteLink,
-    HeroSlide,
-    ServerFeature,
 )
 
 
@@ -203,6 +203,31 @@ async def test_votes_endpoint_returns_active_links(client, db_session):
     votes = response.json()
     assert len(votes) == 1
     assert votes[0]["title"] == "Vote Site 1"
+
+
+@pytest.mark.asyncio
+async def test_top_voters_endpoint_returns_live_vote_leaderboard(client, db_session):
+    leaderboard = Leaderboard(
+        season="live",
+        leaderboard_type="votes",
+        title="Current Month Top Voters",
+        entries=[
+            {"position": 1, "player": "Steve", "votes": 42, "score": 42},
+            {"position": 2, "player": "Alex", "score": "31"},
+        ],
+        meta_data={"source": "rcon"},
+    )
+    db_session.add(leaderboard)
+    await db_session.commit()
+
+    response = await client.get("/api/votes/top")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["updated_at"] is not None
+    assert payload["entries"] == [
+        {"position": 1, "player": "Steve", "votes": 42, "metadata": {}},
+        {"position": 2, "player": "Alex", "votes": 31, "metadata": {}},
+    ]
 
 
 @pytest.mark.asyncio

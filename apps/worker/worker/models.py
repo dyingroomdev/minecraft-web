@@ -38,6 +38,24 @@ class ServerStatus(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class Leaderboard(Base):
+    """Leaderboard snapshot written by worker jobs."""
+
+    __tablename__ = "leaderboards"
+    __table_args__ = (
+        UniqueConstraint("season", "leaderboard_type", name="uq_leaderboard_season_type"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    season: Mapped[str] = mapped_column(String(32), nullable=False)
+    leaderboard_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(140), nullable=True)
+    entries: Mapped[list[dict[str, Any]]] = mapped_column(JSON_VARIANT, default=list)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON_VARIANT), default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class RankProduct(Base):
     """Rank products for worker."""
     

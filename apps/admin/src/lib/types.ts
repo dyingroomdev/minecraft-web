@@ -179,9 +179,21 @@ export const VoteLinkSchema = z.object({
   description: z.string().nullable(),
   url: z.string(),
   button_text: z.string(),
-  rewards: z.array(z.string()).default([]),
+  rewards: z.array(z.string()),
   display_order: z.number(),
-  is_active: z.boolean().default(true),
+  is_active: z.boolean(),
+});
+
+export const TopVoterEntrySchema = z.object({
+  position: z.number(),
+  player: z.string(),
+  votes: z.number(),
+  metadata: z.record(z.any()),
+});
+
+export const TopVotersSchema = z.object({
+  updated_at: z.string().nullable(),
+  entries: z.array(TopVoterEntrySchema),
 });
 
 export const HeroSlideSchema = z.object({
@@ -249,6 +261,8 @@ export type PaymentRequest = z.infer<typeof PaymentRequestSchema>;
 export type SocialLinks = z.infer<typeof SocialLinksSchema>;
 export type User = z.infer<typeof UserSchema>;
 export type VoteLink = z.infer<typeof VoteLinkSchema>;
+export type TopVoterEntry = z.infer<typeof TopVoterEntrySchema>;
+export type TopVoters = z.infer<typeof TopVotersSchema>;
 export type Leaderboard = z.infer<typeof LeaderboardSchema>;
 export type LeaderboardSeasonEntry = z.infer<typeof LeaderboardSeasonEntrySchema>;
 export type LeaderboardSeasonPayload = z.infer<typeof LeaderboardSeasonSchema>;

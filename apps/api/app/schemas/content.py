@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-from app.core.enums import RBACRole
 
 
 class ServerStatusRead(BaseModel):
@@ -289,6 +287,18 @@ class VoteLinkUpdate(BaseModel):
     rewards: list[str] | None = None
     display_order: int | None = None
     is_active: bool | None = None
+
+
+class TopVoterEntry(BaseModel):
+    position: int
+    player: str
+    votes: int
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class TopVotersRead(BaseModel):
+    updated_at: datetime | None = None
+    entries: list[TopVoterEntry] = Field(default_factory=list)
 
 
 class HeroSlideRead(BaseModel):
